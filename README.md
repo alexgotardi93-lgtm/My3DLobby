@@ -20,7 +20,8 @@
 - **Real activity, not a random animation.** My3DLobby tails each profile's `gateway.log` (`inbound message` → the agent sits down and works; `response ready` → it is free again), polls `hermes -p <profile> cron list/runs` for scheduled jobs, and can watch any file you point it at (a state file your scripts touch, a log your tools append to).
 - **A real office:** desks with lamps and plants, a kitchenette (copa) with coffee machine, water cooler, fridge and a table, a lounge with two sofas, TV and a floor lamp, posters, a clock, windows with a view that turns to night.
 - **The rule of the office:** working → desk + monitor on; free → walking around, coffee corner, sofa, whiteboard, chatting with a colleague; outside office hours → sleeping; error → shaking its head at the desk; profile gone → greyed-out in the corner.
-- **Office feed and agent cards.** Click a robot (or its chip) for model, schedules, runs today and recent events. The feed on the right shows what happened, with response time and API calls.
+- **Office feed and agent cards.** Click a person (or its chip) for model, schedules, runs today and recent events. The feed on the right shows what happened, with response time and API calls.
+- **Talk to an agent from its card.** Messages go through `hermes -p <profile> chat --oneshot`; the person sits down and "answers you" while it runs. For demand agents (the Arquiteto) a message can be registered as a demand in the agent chain, so the plan flows to the Dev and the Reviewer. Chat is local-only unless `[server] chat_lan = true`.
 - **Desktop app**, not a browser tab: a pywebview window for macOS and Windows. The Windows notebook can open the Mac's office over the LAN.
 - **Read-only and secret-free.** It never writes to `~/.hermes`, never reads `.env`, keys or tokens — only the `model:` line of `config.yaml` and the logs.
 - **Zero dependencies** for the server (Python standard library). three.js is vendored.
@@ -102,7 +103,6 @@ my3dlobby.example.toml
 
 ## Roadmap
 
-- Talk to an agent from its card (Hermes HTTP API).
 - More furniture and a day/night cycle driven by the real clock.
 - Custom faces/outfits per agent.
 
@@ -121,7 +121,7 @@ Um escritório 3D onde os perfis do **Hermes Agent** moram. Enquanto não estão
 - Cada perfil em `~/.hermes/profiles/` vira um personagem (nome, função, cor e mesa configuráveis em `~/.my3dlobby.toml`).
 - A atividade é real: o My3DLobby lê o `gateway.log` de cada perfil (`inbound message` → senta e trabalha; `response ready` → fica livre), consulta `hermes -p <perfil> cron list/runs` para os agendamentos e pode vigiar arquivos que você indicar (um estado que seu script atualiza, um log que suas ferramentas escrevem).
 - Regra do escritório: **trabalhando** → mesa e monitor aceso; **livre** → passeia, café, sofá, quadro, papo com colega; **fora do horário** → dormindo; **erro** → balança a cabeça na mesa; **perfil sumiu** → cinza, no canto.
-- Clique num robô (ou no chip dele) para ver modelo, agendamentos, execuções do dia e eventos recentes. O feed à direita mostra o que aconteceu, com tempo de resposta e chamadas de API.
+- Clique numa pessoa (ou no chip dela) para ver modelo, agendamentos, execuções do dia, eventos recentes e **conversar com o agente**: a mensagem vai pelo `hermes chat --oneshot`; para o Arquiteto ela pode virar demanda da cadeia (plano → Dev → Reviewer). O feed à direita mostra o que aconteceu, com tempo de resposta e chamadas de API.
 - Abre numa **janela própria** (pywebview), no Mac e no Windows. O notebook Windows abre o escritório do Mac pela rede.
 - Só leitura, sem segredos: nunca escreve em `~/.hermes`, nunca lê `.env`, chaves ou tokens — só a linha `model:` do `config.yaml` e os logs.
 

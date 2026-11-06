@@ -7,6 +7,8 @@ const STR = {
     open: 'escritório aberto', closed: 'escritório fechado', connecting: 'conectando…', connected: 'ao vivo', disconnected: 'sem conexão com o servidor',
     status: { working: 'trabalhando', idle: 'livre', sleeping: 'dormindo', error: 'com problema', offline: 'desligado' },
     none: 'nenhum', never: 'nunca', next: 'próx.',
+    talk: 'Falar com o agente', typing_label: 'respondendo…', as_demand: 'Registrar como demanda (plano → Dev → Reviewer)', send: 'Enviar',
+    chat_ph: 'Escreva a ordem ou a pergunta… (Enter envia, Shift+Enter quebra linha)', chat_remote: 'conversa só pelo computador do escritório', sent_demand: 'registrado como demanda: ', chat_err: 'não enviado: ',
     leisure: {
       walk: ['Dando uma volta', 'Esticando as pernas', 'Passeando'],
       coffee: ['Tomando um café', 'Pausa para o café', 'Café fresquinho'],
@@ -26,6 +28,8 @@ const STR = {
     open: 'office open', closed: 'office closed', connecting: 'connecting…', connected: 'live', disconnected: 'no connection to the server',
     status: { working: 'working', idle: 'free', sleeping: 'sleeping', error: 'in trouble', offline: 'offline' },
     none: 'none', never: 'never', next: 'next',
+    talk: 'Talk to the agent', typing_label: 'answering…', as_demand: 'Register as a demand (plan → Dev → Reviewer)', send: 'Send',
+    chat_ph: 'Write the order or the question… (Enter sends, Shift+Enter for a new line)', chat_remote: 'chat only from the office computer', sent_demand: 'registered as demand: ', chat_err: 'not sent: ',
     leisure: {
       walk: ['Taking a walk', 'Stretching the legs', 'Wandering'],
       coffee: ['Getting coffee', 'Coffee break', 'Fresh coffee'],
@@ -48,6 +52,10 @@ export function setLang(l) {
   for (const el of document.querySelectorAll('[data-i18n]')) {
     const v = STR[lang][el.dataset.i18n];
     if (v) el.textContent = v;
+  }
+  for (const el of document.querySelectorAll('[data-i18n-ph]')) {
+    const v = STR[lang][el.dataset.i18nPh];
+    if (v) el.placeholder = v;
   }
   try { localStorage.setItem('my3dlobby.lang', lang); } catch (_) {}
 }

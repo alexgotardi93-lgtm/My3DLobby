@@ -32,19 +32,47 @@ def make_handler(reader, cfg: Config):
             self.send_header("Cache-Control", "no-store")
             super().end_headers()
 
-        def do_GET(self):
+        def _local(self) -> bool:
+            return cfg.chat_lan or self.client_address[0] in ("127.0.0.1", "::1", "localhost")
+
+        def do_POST(self):
             path = self.path.split("?", 1)[0]
+            if path != "/api/chat":
+                self.send_error(404)
+                return
+            if not self._local():
+                return self._json({"ok": False, "erro": "conversa só pelo computador do escritório (ou chat_lan = true)"}, 403)
+            try:
+                n = int(self.headers.get("Content-Length", "0"))
+                data = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
+            except (ValueError, OSError):
+                return self._json({"ok": False, "erro": "pedido inválido"}, 400)
+            agent = str(data.get("agent", "")).strip()
+            if not agent or agent not in reader.agent_ids():
+                return self._json({"ok": False, "erro": "agente desconhecido"}, 400)
+            return self._json(reader.chat.send(agent, str(data.get("text", "")), bool(data.get("demanda", False))))
+
+        def do_GET(self):
+            path, _, query = self.path.partition("?")
             if path == "/api/state":
                 return self._json(reader.snapshot())
+            if path == "/api/chat":
+                params = dict(p.split("=", 1) for p in query.split("&") if "=" in p)
+                from urllib.parse import unquote
+                agent = unquote(params.get("agent", ""))
+                st = reader.chat.state(agent)
+                st["allowed"] = self._local()
+                st["demand_agent"] = agent in cfg.demand_agents
+                return self._json(st)
             if path == "/api/health":
                 return self._json({"ok": True, "version": __version__, "office": cfg.office_name})
             if path == "/":
                 self.path = "/index.html"
             return super().do_GET()
 
-        def _json(self, data):
+        def _json(self, data, code=200):
             body = json.dumps(data, ensure_ascii=False).encode("utf-8")
-            self.send_response(200)
+            self.send_response(code)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()

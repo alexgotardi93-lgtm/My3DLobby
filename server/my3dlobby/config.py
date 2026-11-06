@@ -141,6 +141,9 @@ class Config:
     stale_run_seconds: int = 900  # an inbound with no response for this long is considered done
     host: str = "127.0.0.1"
     port: int = 4455
+    chat_lan: bool = False  # allow /api/chat from other computers on the LAN
+    lobby_dir: str = "~/repos/BPG Sistemas Lobby"  # where the agent chain keeps arquiteto/demandas
+    demand_agents: list = field(default_factory=lambda: ["arquiteto"])
     agents: list = field(default_factory=list)  # AgentConfig
     signals: list = field(default_factory=list)  # SignalConfig
     source_path: str = ""
@@ -202,6 +205,10 @@ def _apply(cfg: Config, data: dict) -> None:
     server = data.get("server", {})
     cfg.host = server.get("host", cfg.host)
     cfg.port = int(server.get("port", cfg.port))
+    cfg.chat_lan = bool(server.get("chat_lan", cfg.chat_lan))
+    chain = data.get("chain", {})
+    cfg.lobby_dir = chain.get("lobby", cfg.lobby_dir)
+    cfg.demand_agents = list(chain.get("demand_agents", cfg.demand_agents))
 
     cfg.agents = [
         AgentConfig(

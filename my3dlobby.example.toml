@@ -20,6 +20,11 @@ stale_run_seconds = 900               # mensagem sem resposta há tanto tempo = 
 [server]
 host = "127.0.0.1"         # 0.0.0.0 para abrir também no notebook Windows (mesma rede)
 port = 4455
+chat_lan = false           # true: falar com os agentes também pelo notebook (qualquer um na rede poderia)
+
+[chain]                    # cadeia Arquiteto -> Dev -> Reviewer (pasta do escritório de agentes)
+lobby = "~/repos/BPG Sistemas Lobby"
+demand_agents = ["arquiteto"]   # para esses, a mensagem pode virar demanda (plano -> Dev -> Reviewer)
 
 # ---- agentes: nome, função, cor e mesa (opcional; a ordem define as mesas)
 [[agent]]

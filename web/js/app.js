@@ -200,8 +200,56 @@ function renderPanel(id) {
   }
 }
 
+// ---------------------------------------------------------------- chat
+let chatTimer = null;
+let chatSeen = 0;
+async function loadChat(id) {
+  if (!id) return;
+  try {
+    const r = await fetch('api/chat?agent=' + encodeURIComponent(id), { cache: 'no-store' });
+    const st = await r.json();
+    if (selected !== id) return;
+    renderChat(st);
+  } catch (e) { /* offline */ }
+}
+function renderChat(st) {
+  const ul = $('chat-list');
+  const a = lastState && lastState.agents.find((x) => x.id === st.agent);
+  const name = a ? a.name : st.agent;
+  ul.innerHTML = '';
+  for (const m of st.messages) {
+    const li = document.createElement('li');
+    li.className = m.role === 'alex' ? 'alex' : 'agent' + (m.ok === false ? ' bad' : '');
+    li.innerHTML = `<time>${esc(m.role === 'alex' ? 'Alex' : name)} · ${hhmm(m.time)}</time>${esc(m.text)}${m.demanda ? `<span class="dem">↳ ${t('sent_demand')}${esc(m.demanda.split('/').pop())}</span>` : ''}`;
+    ul.appendChild(li);
+  }
+  if (st.messages.length !== chatSeen) { ul.scrollTop = ul.scrollHeight; chatSeen = st.messages.length; }
+  $('chat-typing').classList.toggle('hidden', !st.running);
+  $('chat-send').disabled = !!st.running || st.allowed === false;
+  $('chat-demand-row').classList.toggle('hidden', !st.demand_agent);
+  $('chat-note').textContent = st.allowed === false ? t('chat_remote') : '';
+}
+async function sendChat() {
+  const text = $('chat-text').value.trim();
+  if (!text || !selected) return;
+  $('chat-send').disabled = true;
+  try {
+    const r = await fetch('api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent: selected, text, demanda: !$('chat-demand-row').classList.contains('hidden') && $('chat-demand').checked }) });
+    const res = await r.json();
+    if (res.ok) { $('chat-text').value = ''; $('chat-note').textContent = res.demanda ? t('sent_demand') + res.demanda.split('/').pop() : ''; }
+    else $('chat-note').textContent = t('chat_err') + (res.erro || r.status);
+  } catch (e) { $('chat-note').textContent = t('chat_err') + e.message; }
+  loadChat(selected);
+}
+$('chat-send').onclick = sendChat;
+$('chat-text').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } });
+
 function select(id) {
   selected = id;
+  chatSeen = -1;
+  if (chatTimer) { clearInterval(chatTimer); chatTimer = null; }
+  if (id) { loadChat(id); chatTimer = setInterval(() => loadChat(id), 3000); }
   if (lastState) renderChips(lastState);
   renderPanel(id);
   if (id) focusOn(id); else follow = false;
@@ -246,6 +294,7 @@ $('feed-toggle').onclick = () => { const f = $('feed'); f.classList.toggle('coll
 $('btn-lang').onclick = () => { setLang(lang === 'pt' ? 'en' : 'pt'); $('btn-lang').textContent = lang === 'pt' ? 'EN' : 'PT'; if (lastState) applyState(lastState); renderConn(); };
 $('btn-lang').textContent = lang === 'pt' ? 'EN' : 'PT';
 window.addEventListener('keydown', (e) => {
+  if (e.target && e.target.tagName === 'TEXTAREA') { if (e.key === 'Escape') e.target.blur(); return; }
   if (e.key === 'Escape') select(null);
   if (e.key === 'f' || e.key === 'F') $('btn-follow').click();
   if (e.key === 'o' || e.key === 'O') goOverview();

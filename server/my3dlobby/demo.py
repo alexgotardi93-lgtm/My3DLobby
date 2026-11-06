@@ -26,9 +26,49 @@ TASKS = {
 }
 
 
+class DemoChat:
+    """Answers after a few seconds, without Hermes."""
+
+    def __init__(self):
+        import threading
+        self.lock = threading.Lock()
+        self.history: dict[str, list] = {}
+        self.running: dict[str, dict] = {}
+
+    def state(self, agent):
+        with self.lock:
+            return {"agent": agent, "messages": list(self.history.get(agent, [])), "running": agent in self.running,
+                    "since": self.running.get(agent, {}).get("since", "")}
+
+    def busy(self, agent):
+        with self.lock:
+            return agent in self.running
+
+    def send(self, agent, text, as_demand=False):
+        import threading, time as _t
+        text = text.strip()
+        if not text:
+            return {"ok": False, "erro": "mensagem vazia"}
+        with self.lock:
+            if agent in self.running:
+                return {"ok": False, "erro": "o agente ainda está respondendo"}
+            self.running[agent] = {"since": now_local().isoformat(timespec="seconds")}
+            self.history.setdefault(agent, []).append({"role": "alex", "text": text, "time": now_local().isoformat(timespec="seconds"), "demanda": "arquiteto/demandas/demo.md" if as_demand else ""})
+
+        def reply():
+            _t.sleep(6)
+            with self.lock:
+                self.running.pop(agent, None)
+                self.history[agent].append({"role": agent, "ok": True, "time": now_local().isoformat(timespec="seconds"),
+                                            "text": f"(demo) Entendido: \"{text[:60]}\". " + ("Plano escrito em arquiteto/planos/PLANO-demo.md; status pronto, o Dev pega na próxima rodada." if as_demand else "Respondido.")})
+        threading.Thread(target=reply, daemon=True).start()
+        return {"ok": True, "demanda": "arquiteto/demandas/demo.md" if as_demand else ""}
+
+
 class DemoReader:
     def __init__(self, cfg: Config):
         self.cfg = cfg
+        self.chat = DemoChat()
         self.rng = random.Random(7)
         self.state: dict[str, dict] = {}
         self.feed: list[dict] = []
@@ -41,6 +81,9 @@ class DemoReader:
 
     def stop(self) -> None:
         pass
+
+    def agent_ids(self):
+        return [a["id"] for a in DEMO_AGENTS]
 
     def _tick(self, when: datetime) -> None:
         for a in DEMO_AGENTS:
@@ -69,11 +112,12 @@ class DemoReader:
         agents = []
         for i, a in enumerate(DEMO_AGENTS):
             s = self.state[a["id"]]
+            chatting = self.chat.busy(a["id"])
             agents.append({
                 **a,
                 "desk": i,
-                "status": s["status"],
-                "activity": s["activity"],
+                "status": "working" if chatting else s["status"],
+                "activity": "Respondendo ao Alex" if chatting else s["activity"],
                 "last_activity": when.isoformat(timespec="seconds"),
                 "runs_today": s["runs"],
                 "messages_today": s["runs"],

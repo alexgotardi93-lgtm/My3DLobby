@@ -24,6 +24,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
+from .chat import ChatHub
 from .config import PALETTE, AgentConfig, Config, SignalConfig
 
 LOG_LINE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),(\d{3}) (\w+) ([\w.\-]+): (.*)$")
@@ -241,6 +242,11 @@ class HermesReader:
         self.last_discovery = 0.0
         self.errors: list[str] = []
         self._stop = threading.Event()
+        self.chat = ChatHub(cfg, self.hermes_bin)
+
+    def agent_ids(self) -> list[str]:
+        with self.lock:
+            return list(self.agents)
 
     # ---------------------------------------------------------------- discovery
     def _find_hermes(self) -> str:
@@ -419,6 +425,8 @@ class HermesReader:
             return "offline", ""
         if st.error_until and when < st.error_until:
             return "error", st.error_text
+        if self.chat.busy(st.profile):
+            return "working", "Respondendo ao Alex"
         if st.open_runs:
             run = max(st.open_runs.values(), key=lambda r: r.started)
             return "working", short(run.text, 70)

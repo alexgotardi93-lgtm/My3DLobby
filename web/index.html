@@ -40,6 +40,17 @@
     <dt data-i18n="messages_today">Mensagens hoje</dt><dd id="panel-msgs">0</dd>
     <dt data-i18n="last_activity">Última atividade</dt><dd id="panel-last">—</dd>
   </dl>
+  <h3 data-i18n="talk">Falar com o agente</h3>
+  <div id="chat">
+    <ul id="chat-list" class="chat-list"></ul>
+    <div id="chat-typing" class="chat-typing hidden"><span class="spinner small"></span><span data-i18n="typing_label">respondendo…</span></div>
+    <label id="chat-demand-row" class="chat-demand"><input type="checkbox" id="chat-demand" checked> <span data-i18n="as_demand">Registrar como demanda (plano → Dev → Reviewer)</span></label>
+    <div class="chat-box">
+      <textarea id="chat-text" rows="3" data-i18n-ph="chat_ph" placeholder="Escreva a ordem ou a pergunta… (Enter envia, Shift+Enter quebra linha)"></textarea>
+      <button id="chat-send" class="primary" data-i18n="send">Enviar</button>
+    </div>
+    <div id="chat-note" class="chat-note"></div>
+  </div>
   <h3 data-i18n="schedules">Agendamentos</h3>
   <ul id="panel-crons" class="list"></ul>
   <h3 data-i18n="recent">Recentes</h3>
