@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My3DLobby by BPG</title>
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{"imports": {"three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/"}}</script>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<header id="top">
+  <div class="brand">
+    <div class="logo">My<span>3D</span>Lobby</div>
+    <div class="by">by BPG</div>
+  </div>
+  <div class="office">
+    <div id="office-name">—</div>
+    <div class="meta"><span id="clock">--:--</span> · <span id="office-open">…</span></div>
+  </div>
+  <nav id="chips"></nav>
+</header>
+
+<aside id="panel" class="hidden">
+  <button id="panel-close" title="Fechar (Esc)">×</button>
+  <div class="head">
+    <div class="avatar" id="panel-avatar"></div>
+    <div>
+      <h2 id="panel-name">—</h2>
+      <div class="sub" id="panel-role"></div>
+    </div>
+  </div>
+  <div class="status-line"><span class="dot" id="panel-dot"></span><span id="panel-status"></span></div>
+  <div class="activity" id="panel-activity"></div>
+  <dl class="facts">
+    <dt data-i18n="model">Modelo</dt><dd id="panel-model">—</dd>
+    <dt data-i18n="runs_today">Execuções hoje</dt><dd id="panel-runs">0</dd>
+    <dt data-i18n="messages_today">Mensagens hoje</dt><dd id="panel-msgs">0</dd>
+    <dt data-i18n="last_activity">Última atividade</dt><dd id="panel-last">—</dd>
+  </dl>
+  <h3 data-i18n="schedules">Agendamentos</h3>
+  <ul id="panel-crons" class="list"></ul>
+  <h3 data-i18n="recent">Recentes</h3>
+  <ul id="panel-recent" class="list"></ul>
+</aside>
+
+<section id="feed">
+  <div class="feed-head">
+    <span data-i18n="feed">Movimento do escritório</span>
+    <button id="feed-toggle" title="Mostrar/ocultar">–</button>
+  </div>
+  <ul id="feed-list"></ul>
+</section>
+
+<footer id="bottom">
+  <span id="conn" class="conn">●</span>
+  <span id="conn-text">conectando…</span>
+  <span class="sep">·</span>
+  <button id="btn-overview" data-i18n="overview">Visão geral</button>
+  <button id="btn-follow" data-i18n="follow">Seguir</button>
+  <span class="sep">·</span>
+  <button id="btn-lang">EN</button>
+  <span class="hint" data-i18n="hint">arraste para girar · roda para zoom · clique num agente</span>
+</footer>
+
+<div id="loading"><div class="spinner"></div><div data-i18n="loading">Abrindo o escritório…</div></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

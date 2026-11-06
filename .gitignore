@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.DS_Store
+remote.txt
+my3dlobby.toml
+build/
+dist/
+*.spec
+.venv/
+venv/
+node_modules/

@@ -1,0 +1,58 @@
+# My3DLobby by BPG — configuração
+# Copie para ~/.my3dlobby.toml (o instalador já faz isso) e ajuste.
+# Tudo é opcional: sem arquivo, cada perfil do Hermes vira um agente.
+
+[office]
+name = "BPG Sistemas"
+hours = "08:00-20:00"      # fora desse horário os agentes dormem
+language = "auto"          # pt | en | auto
+
+[hermes]
+home = "~/.hermes"
+# bin = "/opt/homebrew/bin/hermes"   # só se o comando `hermes` não estiver no PATH
+include_default_profile = false       # mostrar também o perfil "default"
+ignore_profiles = ["dev"]             # perfis que não entram no escritório
+poll_seconds = 5                      # leitura dos logs
+cron_poll_seconds = 60                # `hermes -p X cron list/runs`
+cron_busy_seconds = 45                # quanto tempo um agendamento mantém o agente no PC
+stale_run_seconds = 900               # mensagem sem resposta há tanto tempo = execução encerrada
+
+[server]
+host = "127.0.0.1"         # 0.0.0.0 para abrir também no notebook Windows (mesma rede)
+port = 4455
+
+# ---- agentes: nome, função, cor e mesa (opcional; a ordem define as mesas)
+[[agent]]
+profile = "zap"
+name = "Zap"
+role = "Atendimento WhatsApp"
+color = "#2f8f6f"
+
+[[agent]]
+profile = "financeiro"
+name = "Financeiro"
+role = "Notas fiscais"
+color = "#3b6fd8"
+
+# [[agent]]
+# profile = "arquiteto"
+# name = "Arquiteto"
+# role = "Planos e melhorias"
+# color = "#d8663b"
+
+# ---- sinais: arquivos que mostram trabalho fora do log do gateway
+# kind = "touch": quando o arquivo muda, o agente fica ocupado por busy_seconds
+# kind = "log":   cada linha nova vira um item do feed (e ocupa o agente)
+[[signal]]
+agent = "zap"
+path = "~/repos/BPG Sistemas Lobby/zap/.vigia-estado.json"
+label = "Vigiando o WhatsApp"
+kind = "touch"
+busy_seconds = 25
+
+[[signal]]
+agent = "financeiro"
+path = "~/repos/BPG Sistemas Lobby/financeiro/nfse-registro/eventos.log"
+label = "Emissor de notas"
+kind = "log"
+busy_seconds = 60
