@@ -16,7 +16,7 @@
 
 ## What it does
 
-- **One character per Hermes profile.** `~/.hermes/profiles/*` is discovered automatically; name, role, colour and desk are configurable.
+- **One low-poly person per Hermes profile.** `~/.hermes/profiles/*` is discovered automatically; name, role, shirt colour and desk are configurable. The people are built and animated in code (walk, sit, type, sip coffee, wave, phone, think) — no external models.
 - **Real activity, not a random animation.** My3DLobby tails each profile's `gateway.log` (`inbound message` → the agent sits down and works; `response ready` → it is free again), polls `hermes -p <profile> cron list/runs` for scheduled jobs, and can watch any file you point it at (a state file your scripts touch, a log your tools append to).
 - **The rule of the office:** working → desk + monitor on; free → walking around, coffee corner, sofa, whiteboard, chatting with a colleague; outside office hours → sleeping; error → shaking its head at the desk; profile gone → greyed-out in the corner.
 - **Office feed and agent cards.** Click a robot (or its chip) for model, schedules, runs today and recent events. The feed on the right shows what happened, with response time and API calls.
@@ -94,7 +94,7 @@ kind = "log"                 # or "touch"
 
 ```
 server/my3dlobby/   stdlib server: config.py, hermes.py (reader), servidor.py (HTTP), demo.py
-web/                three.js office: js/office.js, js/characters.js, js/app.js, js/i18n.js
+web/                three.js office: js/office.js, js/humanoid.js, js/characters.js, js/app.js, js/i18n.js
 app/                pywebview window + installers (Mac .command / Windows .bat)
 my3dlobby.example.toml
 ```
@@ -103,11 +103,11 @@ my3dlobby.example.toml
 
 - Talk to an agent from its card (Hermes HTTP API).
 - More furniture and a day/night cycle driven by the real clock.
-- Custom character models per agent.
+- Custom faces/outfits per agent.
 
 ## Credits
 
-three.js (MIT), RobotExpressive by Tomás Laulhé / Don McCurdy (CC0), pywebview (BSD). See `THIRD_PARTY.md`. My3DLobby is MIT — © 2026 BPG Sistemas.
+three.js (MIT), pywebview (BSD). See `THIRD_PARTY.md`. My3DLobby is MIT — © 2026 BPG Sistemas.
 
 ---
 
@@ -132,4 +132,4 @@ Um escritório 3D onde os perfis do **Hermes Agent** moram. Enquanto não estão
 
 **Configurar:** copie `my3dlobby.example.toml` para `~/.my3dlobby.toml` e edite nome do escritório, horário, agentes e sinais.
 
-Licença MIT — © 2026 BPG Sistemas. Modelo RobotExpressive (CC0) de Tomás Laulhé, adaptado por Don McCurdy; three.js (MIT).
+Licença MIT — © 2026 BPG Sistemas. three.js (MIT).

@@ -1,6 +1,5 @@
 // My3DLobby by BPG — main loop: scene, polling /api/state, HUD.
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { buildOffice } from './office.js';
 import { Character } from './characters.js';
@@ -49,7 +48,6 @@ const lamp2 = new THREE.PointLight('#ffd9a0', 10, 12); lamp2.position.set(1.5, 3
 
 // ---------------------------------------------------------------- state
 let office = null;
-let gltf = null;
 const characters = {};
 window.__characters = characters;
 let selected = null;
@@ -62,8 +60,7 @@ const clock = new THREE.Clock();
 // ---------------------------------------------------------------- boot
 async function boot() {
   setLang(initialLang());
-  const [g, first] = await Promise.all([new GLTFLoader().loadAsync('assets/RobotExpressive.glb'), fetchState()]);
-  gltf = g;
+  const first = await fetchState();
   const n = first ? first.agents.length : 3;
   office = buildOffice(scene, n);
   if (first) applyState(first);
@@ -100,7 +97,7 @@ function applyState(s) {
   s.agents.forEach((a, i) => {
     seen.add(a.id);
     let c = characters[a.id];
-    if (!c) { c = characters[a.id] = new Character({ ...a, desk: a.desk ?? i }, gltf, scene, office); }
+    if (!c) { c = characters[a.id] = new Character({ ...a, desk: a.desk ?? i }, scene, office); }
     c.setStatus(a.status, a.activity, { ...a, desk: a.desk ?? i });
     const m = office.spots.desks[(a.desk ?? i) % office.spots.desks.length].monitor;
     const on = a.status === 'working';

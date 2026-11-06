@@ -66,7 +66,7 @@ export function buildOffice(scene, agentCount) {
     const back = a(new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.8, 0.1), mat('#2f3340'))); back.position.set(0, 1.0, 1.4);
     const post = a(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.55, 10), mat('#8a8f9c'))); post.position.set(0, 0.27, 1.05);
     const base = a(new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.04, 20), mat('#8a8f9c'))); base.position.set(0, 0.02, 1.05);
-    desks.push({ x, z, sit: new THREE.Vector3(x, 0, z + 1.05), approach: new THREE.Vector3(x, 0, z + 2.3), face: Math.PI, monitor: monitors[i] });
+    desks.push({ x, z, sit: new THREE.Vector3(x, 0, z + 1.05), approach: new THREE.Vector3(x, 0, z + 2.3), face: Math.PI, seatY: 0.6, monitor: monitors[i] });
   }
 
   // whiteboard on the left wall
@@ -101,9 +101,9 @@ export function buildOffice(scene, agentCount) {
       { p: new THREE.Vector3(11.2, 0, 3.4), face: Math.PI },
     ],
     sofa: [
-      { p: new THREE.Vector3(0.7, 0, 7.2), face: Math.PI, sit: true },
-      { p: new THREE.Vector3(1.5, 0, 7.2), face: Math.PI, sit: true },
-      { p: new THREE.Vector3(2.3, 0, 7.2), face: Math.PI, sit: true },
+      { p: new THREE.Vector3(0.7, 0, 7.2), face: Math.PI, sit: true, seatY: 0.5 },
+      { p: new THREE.Vector3(1.5, 0, 7.2), face: Math.PI, sit: true, seatY: 0.5 },
+      { p: new THREE.Vector3(2.3, 0, 7.2), face: Math.PI, sit: true, seatY: 0.5 },
     ],
     board: [{ p: new THREE.Vector3(-11.4, 0, -3), face: -Math.PI / 2 }],
     window: [{ p: new THREE.Vector3(-8, 0, -7.6), face: Math.PI }, { p: new THREE.Vector3(7, 0, -7.6), face: Math.PI }],
