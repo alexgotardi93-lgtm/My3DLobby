@@ -29,6 +29,9 @@
 <p align="center">
   <img src="docs/screenshot-poses.jpg" width="820" alt="desk, sofa, coffee, whiteboard">
 </p>
+<p align="center">
+  <img src="docs/screenshot-chat.jpg" width="820" alt="talking to the Arquiteto from its card">
+</p>
 
 ## Quick start
 
@@ -71,12 +74,27 @@ name = "Zap"
 role = "WhatsApp support"
 color = "#2f8f6f"
 
+[server]
+host = "127.0.0.1"           # 0.0.0.0 to open it from another computer on the LAN
+port = 4455
+chat_lan = false             # true: chat also from other computers (anyone on the LAN could)
+
+[chain]                      # the agent chain folder (Arquiteto -> Dev -> Reviewer)
+lobby = "~/repos/BPG Sistemas Lobby"
+demand_agents = ["arquiteto"]   # a message to these can be registered as a demand
+
 [[signal]]                   # optional: files that mean "busy" or feed lines
 agent = "financeiro"
 path = "~/repos/office/financeiro/eventos.log"
 label = "Invoice emitter"
 kind = "log"                 # or "touch"
 ```
+
+Helper scripts in `app/` for the Mac: `Atualizar configuracao (Mac).command` (adds new agents and signals to an existing `~/.my3dlobby.toml` without touching your edits), `Compartilhar na rede (Mac).command` (toggles LAN sharing and prints the address), `Abrir My3DLobby (Mac).command` (opens the lobby in the Terminal, with messages, for troubleshooting).
+
+## Controls
+
+Drag to orbit, wheel to zoom, click a person or a chip to open its card, **Follow** to keep the camera on it, **Overview** (`O`) to go back, `1`–`9` select agents, `Esc` closes the card, `EN`/`PT` switches the language.
 
 ## How the status is decided
 
@@ -90,12 +108,15 @@ kind = "log"                 # or "touch"
 
 ## API
 
-`GET /api/state` returns the office, the agents (status, activity, crons, recent events) and the feed. `GET /api/health` is a ping. Port 4455 by default.
+- `GET /api/state` — the office, the agents (status, activity, crons, recent events) and the feed.
+- `GET /api/chat?agent=<profile>` — the conversation with that agent and whether it is answering.
+- `POST /api/chat` `{"agent": "arquiteto", "text": "...", "demanda": true}` — sends a message (`hermes -p <profile> chat --query-file … -Q --oneshot` in the background); with `demanda` the text is also written to `<chain.lobby>/arquiteto/demandas/` so the chain picks it up. Local requests only, unless `chat_lan`.
+- `GET /api/health` — ping. Port 4455 by default.
 
 ## Project layout
 
 ```
-server/my3dlobby/   stdlib server: config.py, hermes.py (reader), servidor.py (HTTP), demo.py
+server/my3dlobby/   stdlib server: config.py, hermes.py (reader), chat.py (talk to agents), servidor.py (HTTP), demo.py
 web/                three.js office: js/office.js, js/humanoid.js, js/characters.js, js/app.js, js/i18n.js
 app/                pywebview window + installers (Mac .command / Windows .bat)
 my3dlobby.example.toml
@@ -103,8 +124,11 @@ my3dlobby.example.toml
 
 ## Roadmap
 
-- More furniture and a day/night cycle driven by the real clock.
-- Custom faces/outfits per agent.
+- Tell "the script ran" apart from "the model worked" for cron jobs (today a cron run keeps the agent at the PC for `cron_busy_seconds`).
+- Streamed answers in the chat; a notification when a plan reaches `aguardando-alex`.
+- Custom faces/outfits per agent; a day/night cycle driven by the real clock.
+
+See `CHANGELOG.md` for what changed in each version.
 
 ## Credits
 
@@ -131,6 +155,10 @@ Um escritório 3D onde os perfis do **Hermes Agent** moram. Enquanto não estão
 - **Windows:** dois cliques em `app/Instalar no Windows.bat` → pede o endereço do Mac (ex.: `http://192.168.0.10:4455/`) e cria o atalho **My3DLobby** na Área de Trabalho. No Mac, dê dois cliques em `app/Compartilhar na rede (Mac).command` uma vez (ele mostra o endereço).
 - Sem Hermes por perto: `python3 app/my3dlobby_app.py --demo`.
 
-**Configurar:** copie `my3dlobby.example.toml` para `~/.my3dlobby.toml` e edite nome do escritório, horário, agentes e sinais.
+**Configurar:** copie `my3dlobby.example.toml` para `~/.my3dlobby.toml` e edite nome do escritório, horário, agentes e sinais. `[chain] lobby` aponta para a pasta da cadeia de agentes (onde ficam `arquiteto/demandas` e `arquiteto/planos`); `chat_lan = true` libera a conversa pelo notebook. Atalhos no `app/`: `Atualizar configuracao (Mac).command` (acrescenta agentes e sinais novos sem perder suas edições), `Compartilhar na rede (Mac).command`, `Abrir My3DLobby (Mac).command` (abre no Terminal, mostrando as mensagens).
+
+**Controles:** arraste para girar, roda para zoom, clique numa pessoa ou no chip para abrir o cartão, **Seguir** prende a câmera nela, **Visão geral** (`O`) volta, `1`–`9` escolhem agentes, `Esc` fecha o cartão, `EN`/`PT` troca o idioma.
+
+**Ambiente:** mesas com abajur, plantinha, papéis e lixeira; copa com bancada, pia, máquina de café, micro-ondas, geladeira, bebedouro, prateleira e mesa redonda com banquinhos; área de lazer com dois sofás em L, mesinha, TV, abajur de pé e estante; quadros, relógio, tapetes, luminárias pendentes que acendem à noite; janelas com paisagem de dia (céu, nuvens, cidade) e de noite (estrelas, lua, janelas acesas).
 
 Licença MIT — © 2026 BPG Sistemas. three.js (MIT).
