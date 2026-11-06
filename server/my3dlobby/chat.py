@@ -143,11 +143,19 @@ class ChatHub:
                 qfile = f.name
         except OSError as e:
             return f"não consegui preparar a mensagem: {e}", False
+        # stdout goes to a file, not a pipe: a child the agent leaves behind (gateway, browser)
+        # could keep a pipe open forever; with a file we only wait for hermes itself to exit.
+        log = qfile + ".out"
         try:
-            out = subprocess.run([self.hermes_bin, "-p", agent, "chat", "--query-file", qfile, "-Q", "--oneshot"],
-                                 capture_output=True, text=True, timeout=TIMEOUT, env=env, stdin=subprocess.DEVNULL)
-        except subprocess.TimeoutExpired:
-            return "o agente não respondeu em 30 minutos", False
+            with open(log, "w", encoding="utf-8") as fh:
+                proc = subprocess.Popen([self.hermes_bin, "-p", agent, "chat", "--query-file", qfile, "-Q", "--oneshot"],
+                                        stdout=fh, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, env=env,
+                                        start_new_session=True)
+                try:
+                    code = proc.wait(timeout=TIMEOUT)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    return "o agente não respondeu em 30 minutos", False
         except OSError as e:
             return f"não consegui chamar o hermes: {e}", False
         finally:
@@ -155,6 +163,17 @@ class ChatHub:
                 os.unlink(qfile)
             except OSError:
                 pass
+        try:
+            raw = open(log, encoding="utf-8", errors="replace").read()
+            os.unlink(log)
+        except OSError:
+            raw = ""
+
+        class _Out:  # keeps the parsing below unchanged
+            stdout = raw
+            stderr = ""
+            returncode = code
+        out = _Out()
         text = ANSI.sub("", out.stdout or "").strip()
         if not text:
             err = ANSI.sub("", out.stderr or "").strip()
