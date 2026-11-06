@@ -60,7 +60,7 @@ hours = "08:00-20:00"        # outside: the agents sleep
 
 [hermes]
 home = "~/.hermes"
-ignore_profiles = ["dev"]
+ignore_profiles = []         # profiles to leave out
 cron_busy_seconds = 45       # a cron run keeps the agent at the PC this long
 
 [[agent]]

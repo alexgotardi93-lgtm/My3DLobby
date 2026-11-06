@@ -11,7 +11,7 @@ language = "auto"          # pt | en | auto
 home = "~/.hermes"
 # bin = "/opt/homebrew/bin/hermes"   # só se o comando `hermes` não estiver no PATH
 include_default_profile = false       # mostrar também o perfil "default"
-ignore_profiles = ["dev"]             # perfis que não entram no escritório
+ignore_profiles = []                  # perfis que não entram no escritório, ex.: ["teste"]
 poll_seconds = 5                      # leitura dos logs
 cron_poll_seconds = 60                # `hermes -p X cron list/runs`
 cron_busy_seconds = 45                # quanto tempo um agendamento mantém o agente no PC
@@ -33,6 +33,12 @@ profile = "financeiro"
 name = "Financeiro"
 role = "Notas fiscais"
 color = "#3b6fd8"
+
+[[agent]]
+profile = "dev"
+name = "Dev"
+role = "Desenvolvimento"
+color = "#c9a227"
 
 # [[agent]]
 # profile = "arquiteto"

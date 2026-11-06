@@ -134,7 +134,7 @@ class Config:
     hermes_home: str = "~/.hermes"
     hermes_bin: str = ""  # auto-detect
     include_default_profile: bool = False
-    ignore_profiles: list = field(default_factory=lambda: ["dev"])
+    ignore_profiles: list = field(default_factory=list)
     poll_seconds: int = 5
     cron_poll_seconds: int = 60
     cron_busy_seconds: int = 45  # a cron run keeps the agent at the PC this long
