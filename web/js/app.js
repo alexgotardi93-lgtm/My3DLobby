@@ -20,7 +20,7 @@ renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#1b1f2a');
-scene.fog = new THREE.Fog('#1b1f2a', 28, 50);
+scene.fog = new THREE.Fog('#1b1f2a', 45, 90);
 
 const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 120);
 const OVERVIEW = { pos: new THREE.Vector3(17, 12.5, 18), target: new THREE.Vector3(2.2, 0.6, 0.2) };
@@ -29,10 +29,13 @@ camera.position.copy(OVERVIEW.pos);
 const controls = new OrbitControls(camera, canvas);
 controls.target.copy(OVERVIEW.target);
 controls.enableDamping = true;
-controls.dampingFactor = 0.08;
+controls.dampingFactor = 0.12;
 controls.maxPolarAngle = Math.PI / 2.15;
 controls.minDistance = 3;
-controls.maxDistance = 40;
+controls.maxDistance = 60;
+controls.zoomSpeed = 0.45;   // trackpads send many wheel events: slower, steadier zoom
+controls.rotateSpeed = 0.7;
+controls.panSpeed = 0.7;
 controls.update();
 
 // lights
@@ -261,6 +264,13 @@ function focusOn(id) {
   if (!c) return;
   follow = true;
   $('btn-follow').classList.add('active');
+  // one approach move when the camera is far; afterwards the user's distance/angle is kept
+  const p = c.root.position;
+  if (camera.position.distanceTo(p) > 12) {
+    camGoal.target.set(p.x, 1.2, p.z);
+    camGoal.pos.copy(camGoal.target).add(new THREE.Vector3(4.5, 4.2, 5.5));
+    camGoal.active = true;
+  }
 }
 
 // camera helpers
@@ -302,7 +312,9 @@ window.addEventListener('keydown', (e) => {
   if (n >= 1 && n <= 9 && lastState && lastState.agents[n - 1]) select(lastState.agents[n - 1].id);
 });
 window.addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
-canvas.addEventListener('pointerdown', () => { camGoal.active = false; if (follow && selected) { /* user takes over orbit; keep following target */ } });
+// any user input stops an automatic camera move, so the view stays where the user left it
+canvas.addEventListener('pointerdown', () => { camGoal.active = false; });
+canvas.addEventListener('wheel', () => { camGoal.active = false; }, { passive: true });
 
 // ---------------------------------------------------------------- loop
 const tmp = new THREE.Vector3();
@@ -311,13 +323,19 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.1);
   const now = performance.now() / 1000;
   for (const c of Object.values(characters)) c.update(dt, now);
-  if (follow && selected && characters[selected]) {
+  if (follow && selected && characters[selected] && !camGoal.active) {
     const p = characters[selected].root.position;
     tmp.set(p.x, 1.2, p.z);
+    // follow: move target and camera together, keeping whatever distance/angle the user chose
+    const before = controls.target.clone();
     controls.target.lerp(tmp, Math.min(1, dt * 3));
-    const want = tmp.clone().add(new THREE.Vector3(4.5, 4.2, 5.5));
-    if (camera.position.distanceTo(want) > 9) camera.position.lerp(want, Math.min(1, dt * 1.5));
+    camera.position.add(controls.target.clone().sub(before));
   } else if (camGoal.active) {
+    if (follow && selected && characters[selected]) {
+      const p = characters[selected].root.position;
+      camGoal.target.set(p.x, 1.2, p.z);
+      camGoal.pos.copy(camGoal.target).add(new THREE.Vector3(4.5, 4.2, 5.5));
+    }
     camera.position.lerp(camGoal.pos, Math.min(1, dt * 2.5));
     controls.target.lerp(camGoal.target, Math.min(1, dt * 2.5));
     if (camera.position.distanceTo(camGoal.pos) < 0.05) camGoal.active = false;
