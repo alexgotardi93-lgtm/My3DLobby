@@ -43,8 +43,8 @@ sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 50 });
 sun.shadow.bias = -0.0005;
 scene.add(sun);
-const warm = new THREE.PointLight('#ffb86b', 14, 12); warm.position.set(10, 3.2, 2); scene.add(warm);
-const lamp2 = new THREE.PointLight('#ffd9a0', 10, 12); lamp2.position.set(1.5, 3.4, 7); scene.add(lamp2);
+const warm = new THREE.PointLight('#ffb86b', 6, 12); warm.position.set(10.8, 3.4, -6); scene.add(warm);
+const lamp2 = new THREE.PointLight('#ffd9a0', 4, 12); lamp2.position.set(1.2, 3.6, 6.2); scene.add(lamp2);
 
 // ---------------------------------------------------------------- state
 let office = null;
@@ -115,8 +115,8 @@ function applyState(s) {
 function setNight(night) {
   const k = night ? 0.25 : 1;
   sun.intensity = 2.2 * k; hemi.intensity = 0.75 * (night ? 0.5 : 1);
-  warm.intensity = night ? 22 : 14; lamp2.intensity = night ? 16 : 10;
-  for (const w of office.windows) { w.material.color.set(night ? '#223055' : '#9fd3ff'); w.material.emissive.set(night ? '#223055' : '#9fd3ff'); }
+  warm.intensity = night ? 10 : 6; lamp2.intensity = night ? 8 : 4;
+  office.setNight(night);
   scene.background.set(night ? '#0d1019' : '#1b1f2a'); scene.fog.color.copy(scene.background);
 }
 

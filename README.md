@@ -18,6 +18,7 @@
 
 - **One low-poly person per Hermes profile.** `~/.hermes/profiles/*` is discovered automatically; name, role, shirt colour and desk are configurable. The people are built and animated in code (walk, sit, type, sip coffee, wave, phone, think) — no external models.
 - **Real activity, not a random animation.** My3DLobby tails each profile's `gateway.log` (`inbound message` → the agent sits down and works; `response ready` → it is free again), polls `hermes -p <profile> cron list/runs` for scheduled jobs, and can watch any file you point it at (a state file your scripts touch, a log your tools append to).
+- **A real office:** desks with lamps and plants, a kitchenette (copa) with coffee machine, water cooler, fridge and a table, a lounge with two sofas, TV and a floor lamp, posters, a clock, windows with a view that turns to night.
 - **The rule of the office:** working → desk + monitor on; free → walking around, coffee corner, sofa, whiteboard, chatting with a colleague; outside office hours → sleeping; error → shaking its head at the desk; profile gone → greyed-out in the corner.
 - **Office feed and agent cards.** Click a robot (or its chip) for model, schedules, runs today and recent events. The feed on the right shows what happened, with response time and API calls.
 - **Desktop app**, not a browser tab: a pywebview window for macOS and Windows. The Windows notebook can open the Mac's office over the LAN.

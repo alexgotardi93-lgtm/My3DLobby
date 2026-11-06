@@ -10,6 +10,8 @@ const STR = {
     leisure: {
       walk: ['Dando uma volta', 'Esticando as pernas', 'Passeando'],
       coffee: ['Tomando um café', 'Pausa para o café', 'Café fresquinho'],
+      water: ['Bebendo água', 'Um copo d\u2019água'],
+      table: ['Lanchinho na copa', 'Papo na copa', 'Pausa na copa'],
       sofa: ['Descansando no sofá', 'Relaxando um pouco', 'Olhando o celular'],
       board: ['Pensando no quadro', 'Rabiscando ideias'],
       chat: ['Batendo papo', 'Trocando ideias'],
@@ -27,6 +29,8 @@ const STR = {
     leisure: {
       walk: ['Taking a walk', 'Stretching the legs', 'Wandering'],
       coffee: ['Getting coffee', 'Coffee break', 'Fresh coffee'],
+      water: ['Drinking water', 'A glass of water'],
+      table: ['Snack in the kitchen', 'Kitchen chat', 'Kitchen break'],
       sofa: ['Resting on the sofa', 'Chilling a bit', 'Checking the phone'],
       board: ['Thinking at the board', 'Sketching ideas'],
       chat: ['Chatting', 'Trading ideas'],

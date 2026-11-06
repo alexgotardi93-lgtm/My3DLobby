@@ -11,7 +11,7 @@ import { findPath, makeTextSprite } from './office.js';
 import { t } from './i18n.js';
 
 const WALK_SPEED = 1.4;
-const LEISURE = [['walk', 30], ['coffee', 24], ['sofa', 24], ['board', 10], ['window', 6], ['chat', 6]];
+const LEISURE = [['walk', 24], ['coffee', 18], ['water', 10], ['table', 10], ['sofa', 22], ['board', 8], ['window', 4], ['chat', 6]];
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -132,7 +132,7 @@ export class Character {
       }
     }
     if (!spot) spot = { p: this.root.position.clone(), face: this.root.rotation.y };
-    const dur = { walk: rand(4, 9), coffee: rand(14, 28), sofa: rand(18, 40), board: rand(12, 24), window: rand(8, 16), chat: rand(10, 18) }[kind];
+    const dur = { walk: rand(4, 9), coffee: rand(14, 28), water: rand(8, 14), table: rand(20, 40), sofa: rand(18, 40), board: rand(12, 24), window: rand(8, 16), chat: rand(10, 18) }[kind];
     this.goal = { kind, target: spot.p, spot, until: performance.now() / 1000 + dur, label: pick(t('leisure')[kind] || ['']) };
   }
 
@@ -165,7 +165,7 @@ export class Character {
       if (this.status === 'error') { this.human.setPose('shake'); this.setBubble(t('error') + ' ' + this.activityText()); }
       else if (this.status === 'sleeping') { this.human.setPose('sleep'); this.setBubble(t('sleep')); }
       else { this.human.setPose('type'); this.setBubble(this.activityText()); }
-    } else if (g.kind === 'sofa') {
+    } else if (g.kind === 'sofa' || g.kind === 'table') {
       if (this.status === 'sleeping') { this.human.setPose('sleep'); this.setBubble(t('sleep')); }
       else { this.human.setPose(Math.random() < 0.5 ? 'phone' : 'sit'); this.setBubble(g.label || null); }
     } else if (g.kind === 'corner') {
@@ -173,7 +173,7 @@ export class Character {
       this.setBubble(null);
     } else {
       this.setBubble(g.label || null);
-      if (g.kind === 'coffee') this.human.setPose('coffee');
+      if (g.kind === 'coffee' || g.kind === 'water') this.human.setPose('coffee');
       if (g.kind === 'board') this.human.setPose('think');
       if (g.kind === 'chat') this.human.emote('wave', 2.5);
       if (g.kind === 'window') this.human.setPose('stand');
@@ -208,7 +208,7 @@ export class Character {
       }
       if (this.status === 'idle' && g.until !== Infinity) {
         this.emoteTimer -= dt;
-        if (this.emoteTimer <= 0 && !this.sitting && g.kind !== 'walk' && g.kind !== 'coffee') { this.human.emote(pick(['wave', 'nod', 'thumbs', 'jump']), 2); this.emoteTimer = rand(8, 18); }
+        if (this.emoteTimer <= 0 && !this.sitting && g.kind !== 'walk' && g.kind !== 'coffee' && g.kind !== 'water') { this.human.emote(pick(['wave', 'nod', 'thumbs', 'jump']), 2); this.emoteTimer = rand(8, 18); }
         if (now > g.until) this.goal = null;
       }
       if (g.kind === 'chat' && g.spot.chatWith && g.spot.chatWith.mode === 'walk') this.goal = null;
