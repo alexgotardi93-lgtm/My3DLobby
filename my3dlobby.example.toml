@@ -40,11 +40,17 @@ name = "Dev"
 role = "Desenvolvimento"
 color = "#c9a227"
 
-# [[agent]]
-# profile = "arquiteto"
-# name = "Arquiteto"
-# role = "Planos e melhorias"
-# color = "#d8663b"
+[[agent]]
+profile = "arquiteto"
+name = "Arquiteto"
+role = "Planos (Opus 5.5)"
+color = "#d8663b"
+
+[[agent]]
+profile = "reviewer"
+name = "Reviewer"
+role = "Revisão de PR (Opus 5.5)"
+color = "#8c5bd8"
 
 # ---- sinais: arquivos que mostram trabalho fora do log do gateway
 # kind = "touch": quando o arquivo muda, o agente fica ocupado por busy_seconds
@@ -62,3 +68,17 @@ path = "~/repos/BPG Sistemas Lobby/financeiro/nfse-registro/eventos.log"
 label = "Emissor de notas"
 kind = "log"
 busy_seconds = 60
+
+[[signal]]
+agent = "arquiteto"
+path = "~/repos/BPG Sistemas Lobby/arquiteto/decisoes.md"
+label = "Escrevendo um plano"
+kind = "log"
+busy_seconds = 90
+
+[[signal]]
+agent = "dev"
+path = "~/repos/super-cota-licitacao/.git/index"
+label = "Programando"
+kind = "touch"
+busy_seconds = 180
