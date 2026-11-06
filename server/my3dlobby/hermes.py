@@ -402,7 +402,7 @@ class HermesReader:
                     if r.id not in known and st.runs:  # new run since last poll -> feed
                         job = next((j for j in jobs if j.id == r.job), None)
                         st.add_event(Event(r.time, st.profile, "cron", (job.name if job else r.job), {"status": r.status}))
-                        if r.status not in ("completed", "ok", "success"):
+                        if r.status in ("failed", "error", "errored", "timeout", "timed_out", "cancelled", "canceled", "crashed"):
                             st.error_until = r.time + timedelta(minutes=3)
                             st.error_text = f"{job.name if job else r.job}: {r.status}"
                 st.runs = runs
@@ -434,8 +434,10 @@ class HermesReader:
             return "working", st.signal_label
         busy = timedelta(seconds=self.cfg.cron_busy_seconds)
         for r in st.runs[:5]:
+            job = next((j for j in st.jobs if j.id == r.job), None)
+            if r.status in ("running", "started", "in_progress", "queued", "pending") and when < r.time + timedelta(hours=3):
+                return "working", (job.name if job else "Agendamento") + " (executando)"
             if r.time <= when < r.time + busy:
-                job = next((j for j in st.jobs if j.id == r.job), None)
                 return "working", (job.name if job else "Agendamento")
         if not self.office_open(when):
             return "sleeping", ""
