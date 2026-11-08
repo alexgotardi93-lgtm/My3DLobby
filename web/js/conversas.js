@@ -69,7 +69,15 @@ export function fmtDur(sec) {
   return h + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : '');
 }
 function since(iso) { const d = dateOf(iso); return d ? (Date.now() - d.getTime()) / 1000 : 0; }
-function ago(iso) { return `<span data-since="${esc(iso)}">${esc(fmt(t('cv_ago'), { t: fmtDur(since(iso)) }))}</span>`; }
+function ago(iso) { return `<span data-since="${esc(iso)}"></span>`; }  // filled by tickSince (keeps the html stable)
+export function tickSince(root = document) {
+  for (const el of root.querySelectorAll('[data-since]')) el.textContent = fmt(t('cv_ago'), { t: fmtDur(since(el.dataset.since)) });
+}
+function setHtml(el, html) {  // only touch the DOM when something changed (keeps text selections alive)
+  if (el.__html === html) return false;
+  el.innerHTML = html; el.__html = html; tickSince(el);
+  return true;
+}
 function initials(name) { const p = String(name || '?').trim().split(/\s+/); return ((p[0] || '?')[0] + (p[1] ? p[1][0] : (p[0][1] || ''))).toUpperCase(); }
 function agents() { return (S && S.agents) || []; }
 function agentById(id) { return agents().find((a) => a.id === id); }
@@ -334,18 +342,18 @@ function stepsHtml(passos) {
 }
 function renderPin() {
   const box = $('cv-pin');
-  if (!cur) { box.innerHTML = ''; return; }
+  if (!cur) { setHtml(box, ''); return; }
   if (cur === 'cadeia') {
     const c = (S && S.cadeia) || {};
     const q = c.quadro || [];
     const items = q.length ? q.map((it) => `<li class="cv-b" style="--fc:${faseColor(it.fase)}"><div class="b-main"><b>${esc(it.titulo)}</b><small>${esc(boardText(it))} · ${esc(fmt(t('cv_since'), { h: whenLabel(it.desde) }))}</small></div>${prLink(it.pr)}</li>`).join('')
       : `<li class="cv-b-empty">${esc(c.ok === false ? fmt(t('cv_board_off'), { p: c.erro || 'arquiteto/planos' }) : t('cv_board_empty'))}</li>`;
     box.className = 'cv-pin board' + (pinIsOpen() ? ' open' : '');
-    box.innerHTML = `<div class="p-top">${PIN_SVG}<span class="lbl">${esc(t('cv_board'))}</span><span>${q.length}</span><span class="chev">▾</span></div><div class="p-more"><ul class="cv-board">${items}</ul></div>`;
+    setHtml(box, `<div class="p-top">${PIN_SVG}<span class="lbl">${esc(t('cv_board'))}</span><span>${q.length}</span><span class="chev">▾</span></div><div class="p-more"><ul class="cv-board">${items}</ul></div>`);
     return;
   }
   const a = agentById(cur);
-  if (!a) { box.innerHTML = ''; return; }
+  if (!a) { setHtml(box, ''); return; }
   const ag = a.agora;
   const open = pinIsOpen(a);
   let top = '', main = '', more = '', right = '';
@@ -373,8 +381,8 @@ function renderPin() {
     more = rows.map((r) => `<div class="p-row">${r}</div>`).join('') + stepsHtml(ag.passos);
   }
   box.className = 'cv-pin' + (ag && ag.ativo ? ' live' : '') + (open && more ? ' open' : '') + (more ? ' can' : '');
-  box.innerHTML = `<div class="p-top">${top}<span class="p-right">${esc(right)}</span>${more ? '<span class="chev">▾</span>' : ''}</div>`
-    + `<div class="p-main" title="${esc(main)}">${esc(main)}</div>${more ? `<div class="p-more">${more}</div>` : ''}`;
+  setHtml(box, `<div class="p-top">${top}<span class="p-right">${esc(right)}</span>${more ? '<span class="chev">▾</span>' : ''}</div>`
+    + `<div class="p-main" title="${esc(main)}">${esc(main)}</div>${more ? `<div class="p-more">${more}</div>` : ''}`);
 }
 function renderMsgs() {
   const ul = $('cv-msgs');
@@ -566,6 +574,7 @@ export function setupConversas(o = {}) {
   };
   $('cv-pin').onclick = (e) => {
     if (e.target.closest('a') || e.target.closest('.p-more')) return;
+    if (String(window.getSelection ? window.getSelection() : '').trim()) return;  // selecting the command to copy
     if (!$('cv-pin').classList.contains('can') && cur !== 'cadeia') return;
     pinPref = !$('cv-pin').classList.contains('open');
     renderPin();
@@ -588,7 +597,5 @@ export function setupConversas(o = {}) {
   dem.checked = read(DEMAND_KEY) === '1';
   dem.onchange = () => store(DEMAND_KEY, dem.checked ? '1' : '0');
   // "há 35 s" keeps counting between two polls
-  setInterval(() => {
-    for (const el of document.querySelectorAll('[data-since]')) el.textContent = fmt(t('cv_ago'), { t: fmtDur(since(el.dataset.since)) });
-  }, 1000);
+  setInterval(() => tickSince(document), 1000);
 }

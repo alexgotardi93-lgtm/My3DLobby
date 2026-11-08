@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { buildOffice } from './office.js';
 import { Character } from './characters.js';
 import { initialLang, setLang, lang, t } from './i18n.js';
-import { setupConversas, updateConversas, openConversas, isConversasOpen, conversasKey, markSeen, agoraLine, agoraBox } from './conversas.js';
+import { setupConversas, updateConversas, openConversas, conversasKey, markSeen, agoraLine, agoraBox, tickSince } from './conversas.js';
 
 const POLL_MS = 3000;
 const $ = (id) => document.getElementById(id);
@@ -189,7 +189,8 @@ function renderPanel(id) {
   ag.classList.toggle('hidden', !box);
   if (box) {
     ag.className = 'agora' + (box.live ? '' : ' idle');
-    ag.innerHTML = box.html + `<button class="a-open" data-agent="${esc(a.id)}">${esc(t('cv_open_chat'))}</button>`;
+    const html = box.html + `<button class="a-open" data-agent="${esc(a.id)}">${esc(t('cv_open_chat'))}</button>`;
+    if (ag.__html !== html) { ag.innerHTML = html; ag.__html = html; tickSince(ag); }
   }
   $('panel-model').textContent = (a.model || '—') + (a.model && a.model_local ? ` (${t('cv_local')})` : '');
   $('panel-runs').textContent = a.runs_today;
