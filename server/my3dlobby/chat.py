@@ -22,7 +22,7 @@ from datetime import datetime
 from pathlib import Path
 
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07")
-MAX_HISTORY = 60
+MAX_HISTORY = 200
 TIMEOUT = 30 * 60
 
 
@@ -30,6 +30,16 @@ def _slug(text: str) -> str:
     s = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
     s = re.sub(r"[^a-zA-Z0-9]+", "-", s).strip("-").lower()
     return s[:40] or "demanda"
+
+
+def _fold(text: str) -> str:
+    """Lower case without accents, keeping one char per char (so positions match the original)."""
+    return "".join((unicodedata.normalize("NFKD", c)[:1] or c) for c in text).lower()
+
+
+def _preview(text: str, n: int = 140) -> str:
+    text = " ".join(str(text or "").split())
+    return text if len(text) <= n else text[: n - 1] + "…"
 
 
 class ChatHub:
@@ -78,6 +88,48 @@ class ChatHub:
     def busy(self, agent: str) -> bool:
         with self.lock:
             return agent in self.running
+
+    def resumo(self) -> dict:
+        """Per agent: the last message (preview), when the agent last answered and whether it is answering now."""
+        with self.lock:
+            out = {}
+            for agent, msgs in self.history.items():
+                if not msgs:
+                    continue
+                last = msgs[-1]
+                out[agent] = {
+                    "role": last.get("role", ""), "text": _preview(last.get("text", "")), "time": last.get("time", ""),
+                    "ok": last.get("ok", True), "total": len(msgs),
+                    "replies": [m.get("time", "") for m in msgs[-30:] if m.get("role") != "alex"],
+                    "running": agent in self.running,
+                }
+            for agent, run in self.running.items():
+                out.setdefault(agent, {"role": "alex", "text": _preview(run.get("text", "")), "time": run.get("since", ""),
+                                       "ok": True, "total": 0, "replies": [], "running": True})
+            return out
+
+    def buscar(self, q: str, limite: int = 40) -> list:
+        """Messages containing `q` (case and accent insensitive), newest first, with a snippet."""
+        alvo = _fold(q.strip())
+        if len(alvo) < 2:
+            return []
+        achados = []
+        with self.lock:
+            for agent, msgs in self.history.items():
+                for i, m in enumerate(msgs):
+                    texto = str(m.get("text", ""))
+                    pos = _fold(texto).find(alvo)
+                    if pos < 0:
+                        continue
+                    ini, fim = max(0, pos - 50), min(len(texto), pos + len(alvo) + 70)
+                    achados.append({
+                        "agent": agent, "index": i, "role": m.get("role", ""), "time": m.get("time", ""),
+                        "before": ("…" if ini > 0 else "") + re.sub(r"\s+", " ", texto[ini:pos]).lstrip(),
+                        "match": texto[pos:pos + len(alvo)],
+                        "after": re.sub(r"\s+", " ", texto[pos + len(alvo):fim]).rstrip() + ("…" if fim < len(texto) else ""),
+                    })
+        achados.sort(key=lambda a: a["time"], reverse=True)
+        return achados[:limite]
 
     def send(self, agent: str, text: str, as_demand: bool = False) -> dict:
         text = text.strip()

@@ -1,7 +1,11 @@
 """Tiny HTTP server: serves web/ and the JSON API.
 
-  GET /api/state   -> everything the 3D scene needs (agents, statuses, feed)
-  GET /api/health  -> {"ok": true}
+  GET  /api/state            -> everything the 3D scene needs (agents, statuses, feed, what each agent is
+                                doing now, the chain board and the conversation previews)
+  GET  /api/chat?agent=X     -> the conversation with one agent
+  POST /api/chat             -> {"agent", "text", "demanda"}: talk to an agent (local only)
+  GET  /api/conversas/busca?q=  -> messages containing q, across all agents
+  GET  /api/health           -> {"ok": true}
 """
 from __future__ import annotations
 
@@ -64,6 +68,10 @@ def make_handler(reader, cfg: Config):
                 st["allowed"] = self._local()
                 st["demand_agent"] = agent in cfg.demand_agents
                 return self._json(st)
+            if path == "/api/conversas/busca":
+                from urllib.parse import parse_qs
+                q = (parse_qs(query).get("q") or [""])[0]
+                return self._json({"q": q, "results": reader.chat.buscar(q)})
             if path == "/api/health":
                 return self._json({"ok": True, "version": __version__, "office": cfg.office_name})
             if path == "/":

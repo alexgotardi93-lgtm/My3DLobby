@@ -25,6 +25,7 @@ chat_lan = false           # true: falar com os agentes também pelo notebook (q
 [chain]                    # cadeia Arquiteto -> Dev -> Reviewer (pasta do escritório de agentes)
 lobby = "~/repos/BPG Sistemas Lobby"
 demand_agents = ["arquiteto"]   # para esses, a mensagem pode virar demanda (plano -> Dev -> Reviewer)
+# github = "dono/repositorio"   # opcional: na Cadeia, "#471" vira link para o PR no GitHub
 
 # ---- agentes: nome, função, cor e mesa (opcional; a ordem define as mesas)
 [[agent]]

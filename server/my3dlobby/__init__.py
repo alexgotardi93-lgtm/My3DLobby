@@ -3,4 +3,4 @@
 Pure standard-library Python: no dependencies for the server itself.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

@@ -144,6 +144,7 @@ class Config:
     chat_lan: bool = False  # allow /api/chat from other computers on the LAN
     lobby_dir: str = "~/repos/BPG Sistemas Lobby"  # where the agent chain keeps arquiteto/demandas
     demand_agents: list = field(default_factory=lambda: ["arquiteto"])
+    github_repo: str = ""  # "owner/repo" of the chain's PRs: the Cadeia board links "#471" to GitHub
     agents: list = field(default_factory=list)  # AgentConfig
     signals: list = field(default_factory=list)  # SignalConfig
     source_path: str = ""
@@ -209,6 +210,7 @@ def _apply(cfg: Config, data: dict) -> None:
     chain = data.get("chain", {})
     cfg.lobby_dir = chain.get("lobby", cfg.lobby_dir)
     cfg.demand_agents = list(chain.get("demand_agents", cfg.demand_agents))
+    cfg.github_repo = str(chain.get("github", cfg.github_repo)).strip().strip("/")
 
     cfg.agents = [
         AgentConfig(

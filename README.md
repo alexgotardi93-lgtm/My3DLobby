@@ -23,7 +23,8 @@
 - **Office feed and agent cards.** Click a person (or its chip) for model, schedules, runs today and recent events. The feed on the right shows what happened, with response time and API calls.
 - **Talk to an agent from its card.** Messages go through `hermes -p <profile> chat --oneshot`; the person sits down and "answers you" while it runs. For demand agents (the Arquiteto) a message can be registered as a demand in the agent chain, so the plan flows to the Dev and the Reviewer. Chat is local-only unless `[server] chat_lan = true`.
 - **Desktop app**, not a browser tab: a pywebview window for macOS and Windows. The Windows notebook can open the Mac's office over the LAN.
-- **Read-only and secret-free.** It never writes to `~/.hermes`, never reads `.env`, keys or tokens — only the `model:` line of `config.yaml` and the logs.
+- **Conversas — every agent as a contact.** A messenger-style window (button **Conversas** or `C`): agents listed like contacts with their status, what they are doing and the last message; search across agents and messages; unread badges. On top of each chat stays pinned **what the agent is doing right now** — the exact step Hermes is executing (the command in the terminal, the file it edits, the skill it reads), how long it has been at it, the plan it works on, its own to-do list and the last steps with ✓/✗. A pinned **Cadeia** thread shows each plan of the Arquiteto → Dev → Reviewer chain (who has it, since when, the PR) and every status change as a message.
+- **Read-only and secret-free.** It never writes to `~/.hermes`, never reads `.env`, keys or tokens. From `config.yaml` only the `model:` block (name, local or not) and `agent.max_turns`, re-read whenever the file changes; from each profile's `state.db` (opened read-only) only the latest session's tool *calls* — never their outputs — with anything that looks like a token, key or password masked.
 - **Zero dependencies** for the server (Python standard library). three.js is vendored.
 
 <p align="center">
@@ -94,13 +95,13 @@ Helper scripts in `app/` for the Mac: `Atualizar configuracao (Mac).command` (ad
 
 ## Controls
 
-Drag to orbit, wheel to zoom, click a person or a chip to open its card, **Follow** to keep the camera on it, **Overview** (`O`) to go back, `1`–`9` select agents, `Esc` closes the card, `EN`/`PT` switches the language.
+Drag to orbit, wheel to zoom, click a person or a chip to open its card, **Follow** to keep the camera on it, **Overview** (`O`) to go back, `1`–`9` select agents, `C` opens **Conversas**, `Esc` closes the card or the window, `EN`/`PT` switches the language.
 
 ## How the status is decided
 
 | Status | Source |
 |--------|--------|
-| **working** | an `inbound message` in `gateway.log` with no `response ready` yet (max `stale_run_seconds`); a `cron runs` entry within `cron_busy_seconds`; a `[[signal]]` file touched/appended within its `busy_seconds` |
+| **working** | an `inbound message` in `gateway.log` with no `response ready` yet (max `stale_run_seconds`); a `cron runs` entry within `cron_busy_seconds`; a `[[signal]]` file touched/appended within its `busy_seconds`; an open Hermes session in `state.db` with a sign of life in the last 6 minutes |
 | **error** | an `ERROR` line in the log, or a cron run whose status is not `completed` (3 minutes) |
 | **sleeping** | outside `[office] hours` |
 | **offline** | the profile folder disappeared |
@@ -108,16 +109,17 @@ Drag to orbit, wheel to zoom, click a person or a chip to open its card, **Follo
 
 ## API
 
-- `GET /api/state` — the office, the agents (status, activity, crons, recent events) and the feed.
+- `GET /api/state` — the office, the agents (status, activity, crons, recent events, `agora` = the step being executed now), the feed, the chain board (`cadeia`) and the conversation previews (`conversas`).
 - `GET /api/chat?agent=<profile>` — the conversation with that agent and whether it is answering.
 - `POST /api/chat` `{"agent": "arquiteto", "text": "...", "demanda": true}` — sends a message (`hermes -p <profile> chat --query-file … -Q --oneshot` in the background); with `demanda` the text is also written to `<chain.lobby>/arquiteto/demandas/` so the chain picks it up. Local requests only, unless `chat_lan`.
+- `GET /api/conversas/busca?q=` — messages containing `q` (case and accent insensitive), across all agents.
 - `GET /api/health` — ping. Port 4455 by default.
 
 ## Project layout
 
 ```
-server/my3dlobby/   stdlib server: config.py, hermes.py (reader), chat.py (talk to agents), servidor.py (HTTP), demo.py
-web/                three.js office: js/office.js, js/humanoid.js, js/characters.js, js/app.js, js/i18n.js
+server/my3dlobby/   stdlib server: config.py, hermes.py (reader), atividade.py (step now + chain), chat.py (talk to agents), servidor.py (HTTP), demo.py
+web/                three.js office: js/office.js, js/humanoid.js, js/characters.js, js/app.js, js/conversas.js, js/i18n.js
 app/                pywebview window + installers (Mac .command / Windows .bat)
 my3dlobby.example.toml
 ```
@@ -147,7 +149,8 @@ Um escritório 3D onde os perfis do **Hermes Agent** moram. Enquanto não estão
 - Regra do escritório: **trabalhando** → mesa e monitor aceso; **livre** → passeia, café, sofá, quadro, papo com colega; **fora do horário** → dormindo; **erro** → balança a cabeça na mesa; **perfil sumiu** → cinza, no canto.
 - Clique numa pessoa (ou no chip dela) para ver modelo, agendamentos, execuções do dia, eventos recentes e **conversar com o agente**: a mensagem vai pelo `hermes chat --oneshot`; para o Arquiteto ela pode virar demanda da cadeia (plano → Dev → Reviewer). O feed à direita mostra o que aconteceu, com tempo de resposta e chamadas de API.
 - Abre numa **janela própria** (pywebview), no Mac e no Windows. O notebook Windows abre o escritório do Mac pela rede.
-- Só leitura, sem segredos: nunca escreve em `~/.hermes`, nunca lê `.env`, chaves ou tokens — só a linha `model:` do `config.yaml` e os logs.
+- **Conversas**, no estilo de um app de mensagens (botão **Conversas** ou tecla `C`): cada agente é um contato, com status, o que está fazendo e a última mensagem; pesquisa por agente e por mensagem; contador de não lidas. Em cima de cada conversa fica fixo **o que o agente está fazendo agora** — o passo exato que o Hermes executa (o comando no terminal, o arquivo que edita, a skill que lê), há quanto tempo, o plano, a lista de tarefas dele e os últimos passos com ✓/✗. A conversa fixa **Cadeia** mostra cada plano do Arquiteto → Dev → Reviewer (com quem está, desde quando, o PR) e cada mudança de status como mensagem.
+- Só leitura, sem segredos: nunca escreve em `~/.hermes`, nunca lê `.env`, chaves ou tokens. Do `config.yaml` lê só o bloco `model:` (nome, se é local) e `agent.max_turns`, de novo sempre que o arquivo muda; do `state.db` de cada perfil (aberto só para leitura) lê só as *chamadas* de ferramenta da sessão mais recente — nunca as saídas — e mascara o que parecer token, chave ou senha.
 
 **Instalar**
 
@@ -157,7 +160,7 @@ Um escritório 3D onde os perfis do **Hermes Agent** moram. Enquanto não estão
 
 **Configurar:** copie `my3dlobby.example.toml` para `~/.my3dlobby.toml` e edite nome do escritório, horário, agentes e sinais. `[chain] lobby` aponta para a pasta da cadeia de agentes (onde ficam `arquiteto/demandas` e `arquiteto/planos`); `chat_lan = true` libera a conversa pelo notebook. Atalhos no `app/`: `Atualizar configuracao (Mac).command` (acrescenta agentes e sinais novos sem perder suas edições), `Compartilhar na rede (Mac).command`, `Abrir My3DLobby (Mac).command` (abre no Terminal, mostrando as mensagens).
 
-**Controles:** arraste para girar, roda para zoom, clique numa pessoa ou no chip para abrir o cartão, **Seguir** prende a câmera nela, **Visão geral** (`O`) volta, `1`–`9` escolhem agentes, `Esc` fecha o cartão, `EN`/`PT` troca o idioma.
+**Controles:** arraste para girar, roda para zoom, clique numa pessoa ou no chip para abrir o cartão, **Seguir** prende a câmera nela, **Visão geral** (`O`) volta, `1`–`9` escolhem agentes, `C` abre as **Conversas**, `Esc` fecha o cartão ou a janela, `EN`/`PT` troca o idioma.
 
 **Ambiente:** mesas com abajur, plantinha, papéis e lixeira; copa com bancada, pia, máquina de café, micro-ondas, geladeira, bebedouro, prateleira e mesa redonda com banquinhos; área de lazer com dois sofás em L, mesinha, TV, abajur de pé e estante; quadros, relógio, tapetes, luminárias pendentes que acendem à noite; janelas com paisagem de dia (céu, nuvens, cidade) e de noite (estrelas, lua, janelas acesas).
 

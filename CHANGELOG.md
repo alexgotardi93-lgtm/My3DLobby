@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 — 2026-11-08
+
+- **Conversas.** A messenger-style window (bottom bar button or `C`): every agent is a contact with its status, what it is doing and the last message; search across agents and message text (accent-insensitive, `/api/conversas/busca`); filters (all / working / unread) and unread badges; chat bubbles with day separators, ✓/✓✓, "digitando…" while the agent answers, long answers folded; "Ver no escritório" jumps to the person in 3D. The demand checkbox for the Arquiteto starts unchecked here and remembers your choice.
+- **Agora — what the agent is doing right now.** New `atividade.py` reads each profile's Hermes `state.db` read-only (mode=ro, query_only) and turns the latest session's tool calls into "Rodando: git status", "Editando: src/x.tsx", "Lendo a skill: dev-ler-plano"…, with the state (executando / pensando / lendo / terminou / sem sinal), how long, the step count against `agent.max_turns`, the agent's to-do list, the plan it is on and the last 10 steps with ✓/✗ (from exit codes only — outputs are never read into the page). Shown pinned on top of the chat, in the agent card and in the 3D speech bubble. Secrets in commands are masked.
+- **Cadeia.** The headers of `<chain.lobby>/arquiteto/planos/*.md` and `demandas/*.md` become a board (needs you / Dev / Reviewer / queue / Arquiteto, PR links with `[chain] github = "owner/repo"`) and every status change an event (kept in `~/.my3dlobby/cadeia-eventos.jsonl`, so changes made while the lobby was closed show up too). A one-line summary sits in the bottom bar.
+- **Fix: the model shown was stale.** `config.yaml` is re-read whenever it changes (the card kept showing the old model after the Dev moved to another one), and only the top-level `model:` block counts — a nested `model:` (auxiliary, compression) no longer wins. Local models are tagged "(local)".
+- A live Hermes session counts as work even when there is no log or cron signal; "Última atividade" also uses it.
+
 ## 0.2.0 — 2026-11-06
 
 - **Talk to agents from the lobby.** Chat panel in every agent card; messages go through `hermes -p <profile> chat --query-file … -Q --oneshot` in the background, the person sits down with "Respondendo ao Alex" while it answers, history is kept per agent in `~/.my3dlobby/chats/`. For demand agents (`[chain] demand_agents`, default `arquiteto`) a message can be registered as a demand in the agent chain (`<chain.lobby>/arquiteto/demandas/`), so the plan flows to the Dev and the Reviewer. Local-only unless `[server] chat_lan = true`. (`/api/chat`)

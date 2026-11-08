@@ -2,7 +2,11 @@
 
 Sources (all read-only):
   * ~/.hermes/profiles/<p>/            -> which agents exist
-  * ~/.hermes/profiles/<p>/config.yaml -> only the `model:` line is read
+  * ~/.hermes/profiles/<p>/config.yaml -> only the `model:` block (name, local or not) and
+                                          `agent.max_turns`; re-read whenever the file changes
+  * ~/.hermes/profiles/<p>/state.db    -> the step being executed now (see atividade.py;
+                                          tool calls only, never outputs; secrets masked)
+  * <lobby>/arquiteto/planos/*.md      -> where each plan is in the chain (headers only)
   * ~/.hermes/profiles/<p>/logs/gateway.log
         "inbound message: platform=... chat=... msg=..."  -> the agent starts working
         "response ready: ... time=15.7s api_calls=5 ..."  -> the agent finished
@@ -24,6 +28,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
+from .atividade import AgoraReader, CadeiaReader
 from .chat import ChatHub
 from .config import PALETTE, AgentConfig, Config, SignalConfig
 
@@ -168,6 +173,9 @@ class AgentState:
         self.desk = acfg.desk if acfg else -1
         self.home = home
         self.model = ""
+        self.model_local = False
+        self.max_turns: Optional[int] = None
+        self.config_mtime = 0.0
         self.open_runs: dict[str, OpenRun] = {}
         self.events: list[Event] = []
         self.jobs: list[CronJob] = []
@@ -203,31 +211,86 @@ class AgentState:
             self.last_activity = ev.time
 
     def read_model(self) -> None:
-        """Only the `model:` line is read; the rest of config.yaml is never loaded."""
+        """Reads only the `model:` block and `agent.max_turns`; api keys and the rest are never kept."""
         try:
+            self.config_mtime = self.config_path.stat().st_mtime
             with self.config_path.open("r", encoding="utf-8", errors="replace") as f:
                 lines = f.read().splitlines()
         except OSError:
             return
+        model, local, turns = parse_model_block(lines)
+        self.model, self.model_local, self.max_turns = model, local, turns
+
+    def refresh_model(self) -> None:
+        """config.yaml changed (e.g. the Dev moved to another model): read it again."""
+        try:
+            mtime = self.config_path.stat().st_mtime
+        except OSError:
+            return
+        if mtime != self.config_mtime:
+            self.read_model()
+
+
+def parse_model_block(lines: list[str]) -> tuple[str, bool, Optional[int]]:
+    """(model, is_local, max_turns) from config.yaml lines, without a YAML parser.
+
+    Prefers the top-level `model:` (inline value or its `default:`/`name:` child); falls back to
+    the first `model:`-like line anywhere (older layouts)."""
+    model, local, turns = "", False, None
+    block = ""
+    for line in lines:
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        top = re.match(r"^([A-Za-z_][\w-]*):\s*(.*?)\s*$", line)
+        if top:
+            block = top.group(1)
+            value = _strip_quotes(top.group(2).split(" #", 1)[0])
+            if block in ("model", "default_model") and value and not model:
+                if value.startswith("{"):
+                    mm = re.search(r"(?:default|name|id)\s*:\s*['\"]?([^,'\"}]+)", value)
+                    if mm:
+                        model = mm.group(1).strip()
+                    if re.search(r"provider\s*:\s*['\"]?(ollama|lmstudio|llama\.?cpp|vllm|mlx|local)", value, re.I) or \
+                            re.search(r"localhost|127\.0\.0\.1|:11434", value):
+                        local = True
+                else:
+                    model = value
+            continue
+        sub = re.match(r"^\s+([A-Za-z_][\w-]*):\s*(.*?)\s*$", line)
+        if not sub:
+            continue
+        key, value = sub.group(1), _strip_quotes(sub.group(2).split(" #", 1)[0])
+        if block == "model":
+            if key in ("default", "name", "id", "model") and value and not model:
+                model = value
+            elif key == "provider" and re.fullmatch(r"(ollama|lmstudio|llama\.?cpp|vllm|mlx|local)", value, re.I):
+                local = True
+            elif key in ("base_url", "api_base", "url") and re.search(r"localhost|127\.0\.0\.1|:11434", value):
+                local = True
+        elif block == "agent" and key == "max_turns":
+            try:
+                turns = int(value)
+            except ValueError:
+                pass
+    if not model:  # older layouts: first model-ish line anywhere
         for i, line in enumerate(lines):
             m = re.match(r"^\s*(?:default_)?model:\s*(.*?)\s*$", line)
             if not m:
                 continue
             value = _strip_quotes(m.group(1).split("#", 1)[0])
             if value and not value.startswith("{"):
-                self.model = value
-                return
-            # block form:  model:\n    default: claude-...  (or name:/id:)
+                model = value
+                break
             for nxt in lines[i + 1:i + 8]:
                 mm = re.match(r"^\s+(?:default|name|id|model):\s*(.+?)\s*$", nxt)
                 if mm:
-                    self.model = _strip_quotes(mm.group(1).split("#", 1)[0])
-                    return
-            if value.startswith("{"):
-                mm = re.search(r"(?:default|name|id)\s*:\s*['\"]?([^,'\"}]+)", value)
-                if mm:
-                    self.model = mm.group(1).strip()
-                    return
+                    model = _strip_quotes(mm.group(1).split("#", 1)[0])
+                    break
+            if model:
+                break
+    if re.match(r"^(ollama|lmstudio|local)/", model, re.I):
+        local = True
+    return model, local, turns
 
 
 class HermesReader:
@@ -243,6 +306,8 @@ class HermesReader:
         self.errors: list[str] = []
         self._stop = threading.Event()
         self.chat = ChatHub(cfg, self.hermes_bin)
+        self.agora = AgoraReader(self.home)
+        self.cadeia = CadeiaReader(Path(cfg.lobby_dir).expanduser())
 
     def agent_ids(self) -> list[str]:
         with self.lock:
@@ -287,19 +352,27 @@ class HermesReader:
                     st = AgentState(p, acfg, len(self.agents), self.home)
                     st.read_model()
                     self.agents[p] = st
-            for st in self.agents.values():
-                if not st.model:
-                    st.read_model()
         self.last_discovery = time.time()
 
     # ---------------------------------------------------------------- logs
     def poll_logs(self) -> None:
         with self.lock:
             for st in self.agents.values():
+                st.refresh_model()
                 for line in st.tail.read_new():
                     self._ingest_log_line(st, line)
                 self._poll_signals(st)
                 self._expire(st)
+            profiles = list(self.agents)
+        for p in profiles:  # sqlite reads happen outside the lock
+            try:
+                self.agora.atualizar(p)
+            except Exception as e:  # never let one profile break the loop
+                self._note_error(f"agora {p}: {e}")
+        try:
+            self.cadeia.atualizar()
+        except Exception as e:
+            self._note_error(f"cadeia: {e}")
 
     def _ingest_log_line(self, st: AgentState, line: str) -> None:
         m = LOG_LINE.match(line)
@@ -445,11 +518,24 @@ class HermesReader:
 
     def snapshot(self) -> dict:
         when = now_local()
+        cadeia = self.cadeia.vista()
+        cadeia["github"] = self.cfg.github_repo
         with self.lock:
             agents = []
             feed: list[Event] = []
             for i, st in enumerate(self.agents.values()):
                 status, activity = self.status_of(st, when)
+                agora = self.agora.vista(st.profile, when.timestamp())
+                if agora is not None:
+                    agora["limite"] = st.max_turns
+                    plano = self.cadeia.plano_de({"dev": "em-execucao", "reviewer": "revisando"}.get(st.profile, ""))
+                    if plano:
+                        agora["plano"] = plano
+                    if agora["ativo"] and status in ("idle", "sleeping"):
+                        status = "working"  # a live Hermes session is work, even with no log/cron signal
+                    seen = parse_iso(agora.get("desde") or "")
+                    if seen and (not st.last_activity or seen > st.last_activity):
+                        st.last_activity = seen
                 recent = sorted(st.events, key=lambda e: e.time)[-12:]
                 feed.extend(st.events[-30:])
                 agents.append({
@@ -459,6 +545,8 @@ class HermesReader:
                     "color": st.color,
                     "desk": st.desk if st.desk >= 0 else i,
                     "model": st.model,
+                    "model_local": st.model_local,
+                    "agora": agora,
                     "status": status,
                     "activity": activity,
                     "last_activity": st.last_activity.isoformat(timespec="seconds") if st.last_activity else "",
@@ -485,6 +573,8 @@ class HermesReader:
                 },
                 "agents": agents,
                 "feed": [e.to_json() for e in feed[:60]],
+                "cadeia": cadeia,
+                "conversas": self.chat.resumo(),
             }
 
     # ---------------------------------------------------------------- loop

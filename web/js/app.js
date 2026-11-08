@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { buildOffice } from './office.js';
 import { Character } from './characters.js';
 import { initialLang, setLang, lang, t } from './i18n.js';
+import { setupConversas, updateConversas, openConversas, isConversasOpen, conversasKey, markSeen, agoraLine, agoraBox } from './conversas.js';
 
 const POLL_MS = 3000;
 const $ = (id) => document.getElementById(id);
@@ -101,7 +102,7 @@ function applyState(s) {
     seen.add(a.id);
     let c = characters[a.id];
     if (!c) { c = characters[a.id] = new Character({ ...a, desk: a.desk ?? i }, scene, office); }
-    c.setStatus(a.status, a.activity, { ...a, desk: a.desk ?? i });
+    c.setStatus(a.status, agoraLine(a.agora) || a.activity, { ...a, desk: a.desk ?? i });  // bubble: the exact step when Hermes tells it
     const m = office.spots.desks[(a.desk ?? i) % office.spots.desks.length].monitor;
     const on = a.status === 'working';
     m.mat.color.set(on ? '#5fb3ff' : (a.status === 'error' ? '#ff6b6b' : '#141821'));
@@ -113,6 +114,7 @@ function applyState(s) {
   renderChips(s);
   renderFeed(s);
   if (selected) renderPanel(selected);
+  updateConversas(s);
 }
 
 function setNight(night) {
@@ -182,7 +184,14 @@ function renderPanel(id) {
   $('panel-dot').className = 'dot ' + a.status;
   $('panel-status').textContent = statusLabel(a.status);
   $('panel-activity').textContent = a.activity || '';
-  $('panel-model').textContent = a.model || '—';
+  const box = agoraBox(a);
+  const ag = $('panel-agora');
+  ag.classList.toggle('hidden', !box);
+  if (box) {
+    ag.className = 'agora' + (box.live ? '' : ' idle');
+    ag.innerHTML = box.html + `<button class="a-open" data-agent="${esc(a.id)}">${esc(t('cv_open_chat'))}</button>`;
+  }
+  $('panel-model').textContent = (a.model || '—') + (a.model && a.model_local ? ` (${t('cv_local')})` : '');
   $('panel-runs').textContent = a.runs_today;
   $('panel-msgs').textContent = a.messages_today;
   $('panel-last').textContent = a.last_activity ? fmtDate(a.last_activity) : t('never');
@@ -227,6 +236,7 @@ function renderChat(st) {
     ul.appendChild(li);
   }
   if (st.messages.length !== chatSeen) { ul.scrollTop = ul.scrollHeight; chatSeen = st.messages.length; }
+  markSeen(st.agent);
   $('chat-typing').classList.toggle('hidden', !st.running);
   $('chat-send').disabled = !!st.running || st.allowed === false;
   $('chat-demand-row').classList.toggle('hidden', !st.demand_agent);
@@ -298,14 +308,18 @@ canvas.addEventListener('pointerup', (e) => {
 
 // ---------------------------------------------------------------- UI wiring
 $('panel-close').onclick = () => select(null);
+$('panel-agora').onclick = (e) => { const b = e.target.closest('.a-open'); if (b) openConversas(b.dataset.agent); };
+setupConversas({ onShow: (id) => select(id) });
 $('btn-overview').onclick = goOverview;
 $('btn-follow').onclick = () => { if (!selected) return; follow = !follow; $('btn-follow').classList.toggle('active', follow); };
 $('feed-toggle').onclick = () => { const f = $('feed'); f.classList.toggle('collapsed'); $('feed-toggle').textContent = f.classList.contains('collapsed') ? '+' : '–'; };
 $('btn-lang').onclick = () => { setLang(lang === 'pt' ? 'en' : 'pt'); $('btn-lang').textContent = lang === 'pt' ? 'EN' : 'PT'; if (lastState) applyState(lastState); renderConn(); };
 $('btn-lang').textContent = lang === 'pt' ? 'EN' : 'PT';
 window.addEventListener('keydown', (e) => {
-  if (e.target && e.target.tagName === 'TEXTAREA') { if (e.key === 'Escape') e.target.blur(); return; }
+  if (conversasKey(e)) return;
+  if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) { if (e.key === 'Escape') e.target.blur(); return; }
   if (e.key === 'Escape') select(null);
+  if (e.key === 'c' || e.key === 'C') { e.preventDefault(); openConversas(selected); return; }
   if (e.key === 'f' || e.key === 'F') $('btn-follow').click();
   if (e.key === 'o' || e.key === 'O') goOverview();
   const n = parseInt(e.key, 10);

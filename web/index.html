@@ -34,6 +34,7 @@
   </div>
   <div class="status-line"><span class="dot" id="panel-dot"></span><span id="panel-status"></span></div>
   <div class="activity" id="panel-activity"></div>
+  <div class="agora hidden" id="panel-agora"></div>
   <dl class="facts">
     <dt data-i18n="model">Modelo</dt><dd id="panel-model">—</dd>
     <dt data-i18n="runs_today">Execuções hoje</dt><dd id="panel-runs">0</dd>
@@ -69,12 +70,74 @@
   <span id="conn" class="conn">●</span>
   <span id="conn-text">conectando…</span>
   <span class="sep">·</span>
+  <button id="btn-conversas" class="cv-open" title="Conversas (C)">
+    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6c-.5.4-1.3.1-1.3-.6V16A2.5 2.5 0 0 1 4 13.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 8.5h8M8 11.5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <span data-i18n="conversas">Conversas</span><span id="cv-badge" class="cv-badge hidden">0</span>
+  </button>
+  <button id="cadeia-pill" class="cadeia-pill" title="Cadeia"><span class="pdot"></span><span id="cadeia-text">…</span></button>
+  <span class="sep">·</span>
   <button id="btn-overview" data-i18n="overview">Visão geral</button>
   <button id="btn-follow" data-i18n="follow">Seguir</button>
   <span class="sep">·</span>
   <button id="btn-lang">EN</button>
   <span class="hint" data-i18n="hint">arraste para girar · roda para zoom · clique num agente</span>
 </footer>
+
+<div id="conversas" class="cv hidden" role="dialog" aria-modal="true" aria-labelledby="cv-title">
+  <div class="cv-win" id="cv-win">
+    <aside class="cv-side">
+      <div class="cv-side-head">
+        <b id="cv-title" data-i18n="conversas">Conversas</b>
+        <button id="cv-close" class="cv-icon" data-i18n-title="cv_close" title="Fechar (Esc)">×</button>
+      </div>
+      <div class="cv-search">
+        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input id="cv-q" type="search" autocomplete="off" spellcheck="false" data-i18n-ph="cv_search" placeholder="Pesquisar agente ou mensagem">
+      </div>
+      <div class="cv-filters" id="cv-filters">
+        <button data-f="todos" class="on" data-i18n="cv_f_all">Todos</button>
+        <button data-f="trabalhando" data-i18n="cv_f_working">Trabalhando</button>
+        <button data-f="naolidas" data-i18n="cv_f_unread">Não lidas</button>
+      </div>
+      <div class="cv-scroll">
+        <ul id="cv-list" class="cv-list"></ul>
+        <div id="cv-hits" class="cv-hits"></div>
+      </div>
+    </aside>
+    <section class="cv-main">
+      <div id="cv-empty" class="cv-empty">
+        <div class="cv-empty-icon">
+          <svg viewBox="0 0 24 24" width="44" height="44" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6c-.5.4-1.3.1-1.3-.6V16A2.5 2.5 0 0 1 4 13.5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        </div>
+        <h3 data-i18n="cv_pick">Escolha uma conversa</h3>
+        <p data-i18n="cv_pick_sub"></p>
+      </div>
+      <div id="cv-chat" class="cv-chat hidden">
+        <header class="cv-chat-head">
+          <button id="cv-back" class="cv-icon cv-back" data-i18n-title="cv_back" title="Voltar">‹</button>
+          <div class="cv-av" id="cv-head-av"></div>
+          <div class="cv-head-txt"><b id="cv-head-name">—</b><small id="cv-head-sub"></small></div>
+          <button id="cv-show" class="cv-head-btn" data-i18n="cv_show">Ver no escritório</button>
+        </header>
+        <div id="cv-pin" class="cv-pin"></div>
+        <div class="cv-msgs-wrap"><ul id="cv-msgs" class="cv-msgs"></ul></div>
+        <div id="cv-typing" class="cv-typing hidden"><span class="cv-dots"><i></i><i></i><i></i></span><span data-i18n="cv_typing">digitando…</span></div>
+        <footer id="cv-compose" class="cv-compose">
+          <label id="cv-demand-row" class="cv-demand hidden"><input type="checkbox" id="cv-demand" checked> <span data-i18n="cv_demand">Registrar como demanda (plano → Dev → Reviewer)</span></label>
+          <div class="cv-compose-row">
+            <textarea id="cv-text" rows="1" data-i18n-ph="cv_msg_ph" placeholder="Mensagem"></textarea>
+            <button id="cv-send" class="cv-send" data-i18n-title="cv_send" title="Enviar"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4.5 12 19 5l-3.2 14-4.3-5.2zM11.5 13.8 19 5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg></button>
+          </div>
+          <div id="cv-note" class="cv-note"></div>
+        </footer>
+        <footer id="cv-readonly" class="cv-readonly hidden">
+          <span data-i18n="cv_chain_ro">Somente leitura.</span>
+          <button id="cv-open-arch" data-i18n="cv_open_arch">Abrir o Arquiteto</button>
+        </footer>
+      </div>
+    </section>
+  </div>
+</div>
 
 <div id="loading"><div class="spinner"></div><div data-i18n="loading">Abrindo o escritório…</div></div>
 
