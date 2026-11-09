@@ -280,11 +280,14 @@ def ler_sessao(path: Path, perfil: Optional[str] = None) -> Optional[dict]:
         campos = [c for c in ("id", "source", "model", "started_at", "ended_at", "end_reason", "last_activity_at",
                               "last_activity_description", "tool_call_count", "api_call_count", "title") if c in cs]
         ordem = "COALESCE(last_activity_at, started_at) DESC, started_at DESC" if "last_activity_at" in cs else "started_at DESC"
-        onde, params = "", []
+        # Only sessions with at least one message: a cron check whose script said "nothing to do"
+        # (wakeAgent=false) leaves, in some Hermes versions, an empty session row that is never closed.
+        # It is not work, and counting it made idle agents look busy every few minutes.
+        onde, params = "WHERE EXISTS (SELECT 1 FROM messages m WHERE m.session_id = sessions.id)", []
         if perfil is not None:
             if "profile_name" not in cs:
                 return None
-            onde, params = "WHERE profile_name = ?", [perfil]
+            onde, params = onde + " AND profile_name = ?", [perfil]
         cands = [_dict(r) for r in con.execute(f"SELECT {', '.join(campos)} FROM sessions {onde} ORDER BY {ordem} LIMIT 6", params)]
         if not cands:
             return None
