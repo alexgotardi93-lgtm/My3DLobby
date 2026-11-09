@@ -29,6 +29,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
+from .andares import Andares
 from .atividade import AgoraReader, CadeiaReader
 from .chat import ChatHub
 from .config import PALETTE, AgentConfig, Config, SignalConfig
@@ -313,6 +314,7 @@ class HermesReader:
         self.uso = UsoReader(self.home)
         self.uso_hoje: dict = {}
         self.last_uso = 0.0
+        self.andares = Andares(cfg)
 
     def agent_ids(self) -> list[str]:
         with self.lock:
@@ -565,7 +567,8 @@ class HermesReader:
                     "name": st.name,
                     "role": st.role,
                     "color": st.color,
-                    "desk": st.desk if st.desk >= 0 else i,
+                    "desk": st.desk if st.desk >= 0 else None,
+                    "desk_fixa": st.desk >= 0,
                     "model": st.model,
                     "model_local": st.model_local,
                     "agora": agora,
@@ -579,6 +582,7 @@ class HermesReader:
                     "recent": [e.to_json() for e in reversed(recent)],
                 })
             feed.sort(key=lambda e: e.time, reverse=True)
+            andares = self.andares.aplicar(agents)
             return {
                 "generated_at": when.isoformat(timespec="seconds"),
                 "office": {
@@ -595,6 +599,7 @@ class HermesReader:
                     "errors": self.errors[-5:],
                 },
                 "agents": agents,
+                "andares": andares,
                 "feed": [e.to_json() for e in feed[:60]],
                 "cadeia": cadeia,
                 "conversas": self.chat.resumo(),

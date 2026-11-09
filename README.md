@@ -18,6 +18,7 @@
 
 - **One low-poly person per Hermes profile.** `~/.hermes/profiles/*` is discovered automatically; name, role, shirt colour and desk are configurable. The people are built and animated in code (walk, sit, type, sip coffee, wave, phone, think) — no external models.
 - **Real activity, not a random animation.** My3DLobby tails each profile's `gateway.log` (`inbound message` → the agent sits down and works; `response ready` → it is free again), polls `hermes -p <profile> cron list/runs` for scheduled jobs, and can watch any file you point it at (a state file your scripts touch, a log your tools append to).
+- **Floors — one room per team.** Each floor is its own room with its own agents, colours and a plate on the wall (e.g. **1º BPG Sistemas**, **2º Mesa WIN**). Switch floors in the top bar (or `PgUp`/`PgDn`); a dot shows a floor where someone is working. **+ New floor** asks for a name and which agents move in; ✎ renames a floor, changes who is on it or removes it; the **Floor** selector in an agent's card moves that agent. Profiles named `win-*` get a 2nd floor of their own by default. The chips, the keys `1`–`9` and the office feed follow the floor on screen; Conversas and Uso still show everyone.
 - **A real office:** desks with lamps and plants, a kitchenette (copa) with coffee machine, water cooler, fridge and a table, a lounge with two sofas, TV and a floor lamp, posters, a clock, windows with a view that turns to night.
 - **The rule of the office:** working → desk + monitor on; free → walking around, coffee corner, sofa, whiteboard, chatting with a colleague; outside office hours → sleeping; error → shaking its head at the desk; profile gone → greyed-out in the corner.
 - **Office feed and agent cards.** Click a person (or its chip) for model, schedules, runs today and recent events. The feed on the right shows what happened, with response time and API calls.
@@ -85,6 +86,13 @@ chat_lan = false             # true: chat also from other computers (anyone on t
 lobby = "~/repos/BPG Sistemas Lobby"
 demand_agents = ["arquiteto"]   # a message to these can be registered as a demand
 
+[[floor]]                    # optional: floors (rooms). Without it: one floor; "win-*" profiles get the 2nd
+name = "BPG Sistemas"
+profiles = ["*"]             # everyone not placed on another floor
+[[floor]]
+name = "Mesa WIN"
+profiles = ["win-*"]         # wildcards allowed
+
 [[signal]]                   # optional: files that mean "busy" or feed lines
 agent = "financeiro"
 path = "~/repos/office/financeiro/eventos.log"
@@ -96,7 +104,9 @@ Helper scripts in `app/` for the Mac: `Atualizar configuracao (Mac).command` (ad
 
 ## Controls
 
-Drag to orbit, wheel to zoom, click a person or a chip to open its card, **Follow** to keep the camera on it, **Overview** (`O`) to go back, `1`–`9` select agents, `C` opens **Conversas**, `U` opens **Uso**, `Esc` closes the card or the window, `EN`/`PT` switches the language.
+Drag to orbit, wheel to zoom, click a person or a chip to open its card, **Follow** to keep the camera on it, **Overview** (`O`) to go back, `1`–`9` select agents of the floor on screen, `PgUp`/`PgDn` change floors, `C` opens **Conversas**, `U` opens **Uso**, `Esc` closes the card or the window, `EN`/`PT` switches the language.
+
+Floors created or changed in the lobby are kept in `~/.my3dlobby/andares.json` (they take precedence over `[[floor]]`); delete that file to go back to the config.
 
 ## How the status is decided
 
@@ -115,12 +125,14 @@ Drag to orbit, wheel to zoom, click a person or a chip to open its card, **Follo
 - `POST /api/chat` `{"agent": "arquiteto", "text": "...", "demanda": true}` — sends a message (`hermes -p <profile> chat --query-file … -Q --oneshot` in the background); with `demanda` the text is also written to `<chain.lobby>/arquiteto/demandas/` so the chain picks it up. Local requests only, unless `chat_lan`.
 - `GET /api/conversas/busca?q=` — messages containing `q` (case and accent insensitive), across all agents.
 - `GET /api/uso?periodo=hoje|7d|mes|30d` — tokens and US$ per agent (models, sessions, calls, auxiliary tasks), per day (per hour for `hoje`) and in total, the 30-day pace and the price table used. `/api/state` carries today's figures (`uso`, and `uso_hoje` per agent).
+- `POST /api/andares` — floors: `{"acao": "criar", "nome", "agentes"}`, `{"acao": "mover", "agente", "andar"}`, `{"acao": "editar", "andar", "nome", "agentes"}`, `{"acao": "remover", "andar"}`. Local requests only, unless `chat_lan`. `/api/state` carries `andares` (number, name, agents, how many working) and each agent's `andar` and `desk` (counted inside its floor).
 - `GET /api/health` — ping. Port 4455 by default.
 
 ## Project layout
 
 ```
-server/my3dlobby/   stdlib server: config.py, hermes.py (reader), atividade.py (step now + chain), uso.py (tokens and cost), chat.py (talk to agents), servidor.py (HTTP), demo.py
+server/my3dlobby/   stdlib server: config.py, hermes.py (reader), andares.py (floors), atividade.py (step now + chain), uso.py (tokens and cost), chat.py (talk to agents), servidor.py (HTTP), demo.py
+tests/              python3 -m unittest discover -s tests
 web/                three.js office: js/office.js, js/humanoid.js, js/characters.js, js/app.js, js/conversas.js, js/uso.js, js/i18n.js
 app/                pywebview window + installers (Mac .command / Windows .bat)
 my3dlobby.example.toml
@@ -150,6 +162,7 @@ Um escritório 3D onde os perfis do **Hermes Agent** moram. Enquanto não estão
 - A atividade é real: o My3DLobby lê o `gateway.log` de cada perfil (`inbound message` → senta e trabalha; `response ready` → fica livre), consulta `hermes -p <perfil> cron list/runs` para os agendamentos e pode vigiar arquivos que você indicar (um estado que seu script atualiza, um log que suas ferramentas escrevem).
 - Regra do escritório: **trabalhando** → mesa e monitor aceso; **livre** → passeia, café, sofá, quadro, papo com colega; **fora do horário** → dormindo; **erro** → balança a cabeça na mesa; **perfil sumiu** → cinza, no canto.
 - Clique numa pessoa (ou no chip dela) para ver modelo, agendamentos, execuções do dia, eventos recentes e **conversar com o agente**: a mensagem vai pelo `hermes chat --oneshot`; para o Arquiteto ela pode virar demanda da cadeia (plano → Dev → Reviewer). O feed à direita mostra o que aconteceu, com tempo de resposta e chamadas de API.
+- **Andares — uma sala por equipe.** Cada andar é uma sala com os seus agentes, cores próprias e placa na parede (ex.: **1º BPG Sistemas**, **2º Mesa WIN**). Troque de andar na barra de cima (ou `PgUp`/`PgDn`); um pontinho mostra o andar onde alguém está trabalhando. **+ Novo andar** pede o nome e quais agentes sobem; o ✎ renomeia, muda quem fica no andar ou remove o andar; o seletor **Andar** no cartão do agente muda só ele de andar. Perfis `win-*` ganham um 2º andar sozinhos. Os chips, as teclas `1`–`9` e o movimento do escritório mostram só o andar da tela; Conversas e Uso continuam com todos.
 - Abre numa **janela própria** (pywebview), no Mac e no Windows. O notebook Windows abre o escritório do Mac pela rede.
 - **Conversas**, no estilo de um app de mensagens (botão **Conversas** ou tecla `C`): cada agente é um contato, com status, o que está fazendo e a última mensagem; pesquisa por agente e por mensagem; contador de não lidas. Em cima de cada conversa fica fixo **o que o agente está fazendo agora** — o passo exato que o Hermes executa (o comando no terminal, o arquivo que edita, a skill que lê), há quanto tempo, o plano, a lista de tarefas dele e os últimos passos com ✓/✗. A conversa fixa **Cadeia** mostra cada plano do Arquiteto → Dev → Reviewer (com quem está, desde quando, o PR) e cada mudança de status como mensagem.
 - **Controle de uso** (botão **Uso** ou tecla `U`): quanto cada agente gastou hoje, em 7 dias, no mês ou em 30 dias — barras na cor de cada agente, gráfico por dia (por hora, no caso de hoje), tokens separados em entrada / cache lido / cache gravado / saída, sessões e chamadas ao modelo, tabela e o ritmo para 30 dias. Vem do `state.db` de cada perfil do Hermes (contadores de tokens das sessões e `session_model_usage`, que tem também as chamadas auxiliares, como a compressão); custo = tokens × tabela de preços do Claude 5.5 (para outros modelos, a estimativa que o Hermes gravou; modelo local custa US$ 0). O total de hoje fica na barra de baixo e o de cada agente no cartão dele.
@@ -163,7 +176,7 @@ Um escritório 3D onde os perfis do **Hermes Agent** moram. Enquanto não estão
 
 **Configurar:** copie `my3dlobby.example.toml` para `~/.my3dlobby.toml` e edite nome do escritório, horário, agentes e sinais. `[chain] lobby` aponta para a pasta da cadeia de agentes (onde ficam `arquiteto/demandas` e `arquiteto/planos`); `chat_lan = true` libera a conversa pelo notebook. Atalhos no `app/`: `Atualizar configuracao (Mac).command` (acrescenta agentes e sinais novos sem perder suas edições), `Compartilhar na rede (Mac).command`, `Abrir My3DLobby (Mac).command` (abre no Terminal, mostrando as mensagens).
 
-**Controles:** arraste para girar, roda para zoom, clique numa pessoa ou no chip para abrir o cartão, **Seguir** prende a câmera nela, **Visão geral** (`O`) volta, `1`–`9` escolhem agentes, `C` abre as **Conversas**, `U` abre o **Uso**, `Esc` fecha o cartão ou a janela, `EN`/`PT` troca o idioma.
+**Controles:** arraste para girar, roda para zoom, clique numa pessoa ou no chip para abrir o cartão, **Seguir** prende a câmera nela, **Visão geral** (`O`) volta, `1`–`9` escolhem agentes do andar, `PgUp`/`PgDn` trocam de andar, `C` abre as **Conversas**, `U` abre o **Uso**, `Esc` fecha o cartão ou a janela, `EN`/`PT` troca o idioma.
 
 **Ambiente:** mesas com abajur, plantinha, papéis e lixeira; copa com bancada, pia, máquina de café, micro-ondas, geladeira, bebedouro, prateleira e mesa redonda com banquinhos; área de lazer com dois sofás em L, mesinha, TV, abajur de pé e estante; quadros, relógio, tapetes, luminárias pendentes que acendem à noite; janelas com paisagem de dia (céu, nuvens, cidade) e de noite (estrelas, lua, janelas acesas).
 

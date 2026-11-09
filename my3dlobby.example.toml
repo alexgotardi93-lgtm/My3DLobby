@@ -58,6 +58,43 @@ name = "Reviewer"
 role = "Revisão de PR (Opus 5.5)"
 color = "#8c5bd8"
 
+# ---- 2º andar: Mesa WIN (operação de day trade com agentes)
+[[agent]]
+profile = "win-pesquisador"
+name = "Pesquisador"
+role = "Plano do dia (Opus 5.5)"
+color = "#2aa3b3"
+
+[[agent]]
+profile = "win-estrategista"
+name = "Estrategista"
+role = "Laboratório de estratégias"
+color = "#d84b7a"
+
+[[agent]]
+profile = "win-vigia"
+name = "Vigia"
+role = "Vigia do pregão (Sonnet 5.5)"
+color = "#6b7f3b"
+
+[[agent]]
+profile = "win-revisor"
+name = "Revisor"
+role = "Revisão do dia"
+color = "#c9a227"
+
+# ---- andares: cada andar é uma sala, com os seus agentes (opcional)
+# Sem [[floor]]: um andar só, com o nome do escritório; perfis "win-*" ganham o 2º andar sozinhos.
+# Pelo próprio My3DLobby: botão "+ Novo andar" e o seletor "Andar" no cartão do agente
+# (isso fica em ~/.my3dlobby/andares.json e vale mais que estes blocos).
+# [[floor]]
+# name = "BPG Sistemas"
+# profiles = ["*"]               # todo agente que não estiver em outro andar
+#
+# [[floor]]
+# name = "Mesa WIN"
+# profiles = ["win-*"]           # aceita curinga
+
 # ---- sinais: arquivos que mostram trabalho fora do log do gateway
 # kind = "touch": quando o arquivo muda, o agente fica ocupado por busy_seconds
 # kind = "log":   cada linha nova vira um item do feed (e ocupa o agente)

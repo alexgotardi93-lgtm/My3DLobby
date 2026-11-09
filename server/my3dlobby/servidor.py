@@ -6,6 +6,7 @@
   POST /api/chat             -> {"agent", "text", "demanda"}: talk to an agent (local only)
   GET  /api/conversas/busca?q=  -> messages containing q, across all agents
   GET  /api/uso?periodo=hoje|7d|mes|30d -> tokens and US$ per agent, per day (or hour) and in total
+  POST /api/andares          -> floors: {"acao": "criar"|"mover"|"editar"|"remover", ...} (local only)
   GET  /api/health           -> {"ok": true}
 """
 from __future__ import annotations
@@ -42,16 +43,24 @@ def make_handler(reader, cfg: Config):
 
         def do_POST(self):
             path = self.path.split("?", 1)[0]
-            if path != "/api/chat":
+            if path not in ("/api/chat", "/api/andares"):
                 self.send_error(404)
                 return
             if not self._local():
-                return self._json({"ok": False, "erro": "conversa só pelo computador do escritório (ou chat_lan = true)"}, 403)
+                return self._json({"ok": False, "erro": "só pelo computador do escritório (ou chat_lan = true)"}, 403)
             try:
                 n = int(self.headers.get("Content-Length", "0"))
                 data = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
             except (ValueError, OSError):
                 return self._json({"ok": False, "erro": "pedido inválido"}, 400)
+            if not isinstance(data, dict):
+                return self._json({"ok": False, "erro": "pedido inválido"}, 400)
+            if path == "/api/andares":
+                try:
+                    res = reader.andares.executar(data, reader.agent_ids())
+                except OSError as e:
+                    res = {"ok": False, "erro": f"não consegui gravar os andares: {e}"}
+                return self._json(res, 200 if res.get("ok") else 400)
             agent = str(data.get("agent", "")).strip()
             if not agent or agent not in reader.agent_ids():
                 return self._json({"ok": False, "erro": "agente desconhecido"}, 400)

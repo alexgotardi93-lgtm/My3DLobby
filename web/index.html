@@ -20,6 +20,7 @@
     <div id="office-name">—</div>
     <div class="meta"><span id="clock">--:--</span> · <span id="office-open">…</span></div>
   </div>
+  <nav id="andares" class="andares" data-i18n-title="floor_label" title="Andares"></nav>
   <nav id="chips"></nav>
 </header>
 
@@ -41,6 +42,7 @@
     <dt data-i18n="messages_today">Mensagens hoje</dt><dd id="panel-msgs">0</dd>
     <dt data-i18n="panel_uso">Custo hoje</dt><dd id="panel-uso">—</dd>
     <dt data-i18n="last_activity">Última atividade</dt><dd id="panel-last">—</dd>
+    <dt data-i18n="floor_label">Andar</dt><dd><select id="panel-andar" class="andar-select"></select> <small id="panel-andar-note" class="andar-note"></small></dd>
   </dl>
   <h3 data-i18n="talk">Falar com o agente</h3>
   <div id="chat">
@@ -189,6 +191,26 @@
     </div>
   </div>
   <div id="uso-tip" class="uso-tip hidden" role="tooltip"></div>
+</div>
+
+<div id="am" class="am hidden" role="dialog" aria-modal="true" aria-labelledby="am-title">
+  <div class="am-win">
+    <header class="am-head">
+      <b id="am-title" data-i18n="floor_new_title">Novo andar</b>
+      <button id="am-close" class="cv-icon" data-i18n-title="cv_close" title="Fechar (Esc)">×</button>
+    </header>
+    <label class="am-field"><span data-i18n="floor_name">Nome do andar</span>
+      <input id="am-nome" type="text" maxlength="40" autocomplete="off" spellcheck="false" data-i18n-ph="floor_name_ph" placeholder="Ex.: Mesa WIN"></label>
+    <div class="am-sub" data-i18n="floor_agents">Agentes neste andar</div>
+    <ul id="am-agentes" class="am-agentes"></ul>
+    <div id="am-note" class="am-note"></div>
+    <footer class="am-foot">
+      <button id="am-remover" class="am-danger hidden" data-i18n="floor_remove">Remover andar</button>
+      <span class="am-grow"></span>
+      <button id="am-cancel" data-i18n="floor_cancel">Cancelar</button>
+      <button id="am-ok" class="primary" data-i18n="floor_create">Criar andar</button>
+    </footer>
+  </div>
 </div>
 
 <div id="loading"><div class="spinner"></div><div data-i18n="loading">Abrindo o escritório…</div></div>

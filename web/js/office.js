@@ -49,6 +49,25 @@ function posterTexture(kind) {
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; return tex;
 }
 
+function plateTexture(text, color) {
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 192; const ctx = c.getContext('2d');
+  ctx.fillStyle = color; roundRect(ctx, 0, 0, 1024, 192, 36); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(36, 150, 952, 6);
+  ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  let size = 86; ctx.font = `bold ${size}px Inter, Arial`;
+  while (ctx.measureText(text).width > 940 && size > 30) { size -= 4; ctx.font = `bold ${size}px Inter, Arial`; }
+  ctx.fillText(text, 512, 84);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; return tex;
+}
+
+// one colour set per floor: walls, rug and the floor plate
+const FLOOR_LOOKS = [
+  { back: '#eef1f7', left: '#e3e8f2', rug: '#5b6fa8', rug2: '#7386c4', plate: '#2b3a67' },
+  { back: '#edf4ef', left: '#e0ebe3', rug: '#3f7a5c', rug2: '#58a07a', plate: '#2f6b4f' },
+  { back: '#f6f0e8', left: '#ece2d5', rug: '#a8643b', rug2: '#c98a5a', plate: '#8a4f2a' },
+  { back: '#f1eef7', left: '#e6e1f0', rug: '#6b4fa8', rug2: '#8a6fc4', plate: '#4f3a85' },
+];
+
 // ---------------------------------------------------------------- office
 export function buildOffice(scene, agentCount) {
   const root = new THREE.Group();
@@ -70,8 +89,8 @@ export function buildOffice(scene, agentCount) {
   const runner = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 9), mat('#b85c4a')); runner.rotation.x = -Math.PI / 2; runner.position.set(-11.3, 0.004, 1.0); runner.receiveShadow = true; root.add(runner);
 
   // ---- walls, baseboard, windows with a view
-  box(FLOOR_W, 6, 0.3, '#eef1f7', 0, 3, -10);
-  box(0.3, 6, FLOOR_D, '#e3e8f2', -13, 3, 0);
+  const wallBack = box(FLOOR_W, 6, 0.3, '#eef1f7', 0, 3, -10);
+  const wallLeft = box(0.3, 6, FLOOR_D, '#e3e8f2', -13, 3, 0);
   box(FLOOR_W, 0.18, 0.06, '#c9ced9', 0, 0.09, -9.82); box(0.06, 0.18, FLOOR_D, '#c9ced9', -12.82, 0.09, 0);
   const daySky = skyTexture(false), nightSky = skyTexture(true);
   const windows = [];
@@ -85,6 +104,11 @@ export function buildOffice(scene, agentCount) {
   box(4.2, 1.1, 0.08, '#2b3a67', -6, 4.9, -9.8);
   const sign = makeTextSprite('My3DLobby · BPG', { w: 1024, h: 256, font: 'bold 120px Inter, Arial', color: '#ffffff', bg: 'rgba(0,0,0,0)' });
   sign.scale.set(4, 1, 1); sign.position.set(-6, 4.9, -9.7); root.add(sign);
+  // floor plate ("2º ANDAR · MESA WIN"), only when the office has more than one floor
+  const plateMat = new THREE.MeshStandardMaterial({ map: plateTexture(' ', '#2b3a67'), roughness: 0.6, transparent: true });
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 0.83), plateMat);
+  plate.position.set(4.5, 4.95, -9.8); plate.visible = false; root.add(plate);
+  let plateKey = '';
   // posters + clock on the left wall
   [[-12.82, 3.0, 2.2, 0], [-12.82, 3.0, 4.4, 1], [-12.82, 3.0, 6.6, 2]].forEach(([x, y, z, k]) => {
     box(0.06, 1.75, 1.45, '#1b1f2a', x, y, z);
@@ -269,7 +293,21 @@ export function buildOffice(scene, agentCount) {
     tvMat.emissiveIntensity = night ? 0.9 : 0.6;
   }
 
-  return { root, spots, nodes, monitors, windows, setNight };
+  // ---- floors: same room, its own colours and plate
+  function setFloor(numero, label, multi) {
+    const look = FLOOR_LOOKS[(Math.max(1, numero || 1) - 1) % FLOOR_LOOKS.length];
+    wallBack.material.color.set(look.back); wallLeft.material.color.set(look.left);
+    rug.material.color.set(look.rug); rug2.material.color.set(look.rug2);
+    plate.visible = !!multi;
+    const key = multi ? label + '|' + look.plate : '';
+    if (multi && key !== plateKey) {
+      if (plateMat.map) plateMat.map.dispose();
+      plateMat.map = plateTexture(label, look.plate); plateMat.needsUpdate = true;
+    }
+    plateKey = key;
+  }
+
+  return { root, spots, nodes, monitors, windows, setNight, setFloor };
 }
 
 // ---------------------------------------------------------------- navigation

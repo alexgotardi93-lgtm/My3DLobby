@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 — 2026-11-09
+
+- **Andares (floors) — one room per team.** The office now has floors: each one is the same room with its own agents, its own colours (walls, rug) and a plate on the back wall ("2º ANDAR · MESA WIN"). Only the people of the floor on screen are in the room; the others keep working on their floor. Top bar: one button per floor (a dot when someone there is working), ✎ to rename the floor, change who is on it or remove it, and **+ Novo andar** (name + which agents move in). `PgUp`/`PgDn` change floors; `1`–`9`, the chips and the office feed follow the floor; picking an agent of another floor (Conversas → "Ver no escritório") takes the elevator. The agent card has a **Andar** selector to move that agent.
+- **Where floors come from:** `~/.my3dlobby/andares.json` (what you changed in the lobby; only My3DLobby writes it), else `[[floor]]` blocks (`name`, `profiles` with wildcards) in `~/.my3dlobby.toml`, else one floor named after the office plus a 2nd floor **Mesa WIN** for profiles `win-*` when they exist. Desks are numbered inside each floor, so the room only needs the desks of its busiest floor.
+- New `andares.py`, `POST /api/andares` (create / move / edit / remove; local only unless `chat_lan`); `/api/state` carries `andares` and each agent's `andar`.
+- Demo: a 2nd floor with the Mesa WIN agents (Pesquisador, Estrategista, Vigia, Revisor); demo floors live in a temp file, never in your real one.
+- Example config and `Atualizar configuracao (Mac).command`: the Mesa WIN agents with names, roles and colours.
+- First tests: `python3 -m unittest discover -s tests`.
+
 ## 0.4.0 — 2026-11-09
 
 - **Controle de uso — tokens and US$ per agent.** A new window (bottom bar button **Uso**, or `U`) with period presets (today, 7 days, this month, 30 days) and a US$ / tokens switch: a hero total with the 30-day pace, tiles for tokens (input / cache / output), sessions and model calls and who spent the most; ranked bars per agent in its own colour; a stacked chart per day (per hour for today) with a legend, hover and keyboard readouts; a per-agent table (models, sessions, input, cache read, cache write, output, tokens, cost, share). The colours are the agents' own, with the OKLCH lightness kept in the band that reads evenly on the dark surface, and the stacking order is chosen so touching segments stay apart for colour-blind readers too (checked with the dataviz palette validator).

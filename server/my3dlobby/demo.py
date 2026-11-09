@@ -6,9 +6,12 @@ scene developed) on a machine without Hermes.
 from __future__ import annotations
 
 import random
+import tempfile
 import time
 from datetime import datetime, time as dtime, timedelta
+from pathlib import Path
 
+from .andares import Andares
 from .chat import ChatHub
 from .config import Config
 from .hermes import now_local
@@ -20,6 +23,11 @@ DEMO_AGENTS = [
     {"id": "dev", "name": "Dev", "role": "Desenvolvimento", "color": "#c9a227", "model": "claude-sonnet-5-5"},
     {"id": "arquiteto", "name": "Arquiteto", "role": "Planos e melhorias", "color": "#d8663b", "model": "claude-opus-5-5"},
     {"id": "reviewer", "name": "Reviewer", "role": "Revisão de PR", "color": "#8c5bd8", "model": "claude-opus-5-5"},
+    # 2nd floor: the Mesa WIN trading desk (profiles "win-*" go there by default)
+    {"id": "win-pesquisador", "name": "Pesquisador", "role": "Plano do dia (Opus 5.5)", "color": "#2aa3b3", "model": "claude-opus-5-5"},
+    {"id": "win-estrategista", "name": "Estrategista", "role": "Laboratório de estratégias", "color": "#d84b7a", "model": "claude-opus-5-5"},
+    {"id": "win-vigia", "name": "Vigia", "role": "Vigia do pregão (Sonnet 5.5)", "color": "#6b7f3b", "model": "claude-sonnet-5-5"},
+    {"id": "win-revisor", "name": "Revisor", "role": "Revisão do dia", "color": "#c9a227", "model": "claude-opus-5-5"},
 ]
 
 TASKS = {
@@ -28,6 +36,10 @@ TASKS = {
     "dev": ["Dev - fila (executando)"],
     "arquiteto": ["Avaliando melhoria: gerador de proposta", "Escrevendo plano de ação", "Revisando backlog"],
     "reviewer": ["Reviewer - fila (executando)"],
+    "win-pesquisador": ["Briefing pré-mercado", "Escrevendo o plano do dia do robô"],
+    "win-estrategista": ["Testando estratégia no laboratório", "Rodada de pesquisa"],
+    "win-vigia": ["Vigia do pregão: tudo normal", "Conferindo a coleta da B3"],
+    "win-revisor": ["Revisão do dia do robô"],
 }
 
 # fake Hermes steps (what atividade.AgoraReader reads from state.db on a real office)
@@ -73,6 +85,10 @@ USO_DEMO = {
     "dev": ((1, 3), (50, 140), (45_000, 95_000), 1300, "claude-sonnet-5-5"),
     "arquiteto": ((2, 6), (12, 38), (35_000, 85_000), 1100, "claude-opus-5-5"),
     "reviewer": ((1, 5), (8, 26), (28_000, 70_000), 750, "claude-opus-5-5"),
+    "win-pesquisador": ((1, 2), (10, 30), (30_000, 70_000), 900, "claude-opus-5-5"),
+    "win-estrategista": ((1, 2), (20, 60), (35_000, 80_000), 1000, "claude-opus-5-5"),
+    "win-vigia": ((20, 36), (2, 6), (8_000, 20_000), 250, "claude-sonnet-5-5"),
+    "win-revisor": ((1, 1), (8, 20), (25_000, 60_000), 800, "claude-opus-5-5"),
 }
 
 
@@ -181,6 +197,7 @@ class DemoReader:
             ],
         }
         self.rng = random.Random(7)
+        self.andares = Andares(cfg, Path(tempfile.gettempdir()) / "my3dlobby-demo-andares.json")  # never your real file
         self.state: dict[str, dict] = {}
         self.feed: list[dict] = []
         t = now_local()
@@ -242,7 +259,7 @@ class DemoReader:
             chatting = self.chat.busy(a["id"])
             agents.append({
                 **a,
-                "desk": i,
+                "desk": None,
                 "status": "working" if chatting else s["status"],
                 "activity": "Respondendo ao Alex" if chatting else s["activity"],
                 "last_activity": when.isoformat(timespec="seconds"),
@@ -259,11 +276,13 @@ class DemoReader:
             a.setdefault("model_local", False)
             if a["agora"] and a["agora"]["ativo"]:
                 a["status"] = "working"
+        andares = self.andares.aplicar(agents)
         return {
             "generated_at": when.isoformat(timespec="seconds"),
             "office": {"name": self.cfg.office_name + " (demo)", "hours": self.cfg.hours, "open": True, "language": self.cfg.language},
             "hermes": {"home": "(demo)", "bin": "", "gateway": "demo mode", "last_cron_poll": 0, "errors": []},
             "agents": agents,
+            "andares": andares,
             "feed": self.feed[:60],
             "cadeia": self._cadeia(when),
             "conversas": self.chat.resumo(),
