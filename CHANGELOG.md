@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 — 2026-11-09
+
+- **Controle de uso — tokens and US$ per agent.** A new window (bottom bar button **Uso**, or `U`) with period presets (today, 7 days, this month, 30 days) and a US$ / tokens switch: a hero total with the 30-day pace, tiles for tokens (input / cache / output), sessions and model calls and who spent the most; ranked bars per agent in its own colour; a stacked chart per day (per hour for today) with a legend, hover and keyboard readouts; a per-agent table (models, sessions, input, cache read, cache write, output, tokens, cost, share). The colours are the agents' own, with the OKLCH lightness kept in the band that reads evenly on the dark surface, and the stacking order is chosen so touching segments stay apart for colour-blind readers too (checked with the dataviz palette validator).
+- **New `uso.py`.** Reads each profile's Hermes `state.db` read-only: session token counters and, when present, `session_model_usage` (per model and per task, so auxiliary calls such as compression and titles count too), reconciled the way `hermes insights` does; a session counts on the day it started; the same session in two stores counts once. Cost of each piece: what the provider billed, else tokens × the Claude 5.5 table (Opus 4/20, Sonnet 2/10, Haiku 0.10/0.50 US$ per million, cache read 5–10 % and cache write 125 % of input, Haiku's 5× tier above 100K-token prompts), else Hermes' own estimate, local models US$ 0, otherwise flagged "sem preço". `GET /api/uso?periodo=…`; today's figures also in `/api/state` (bottom bar, agent card "Custo hoje").
+- Demo: the Dev runs on Claude Sonnet 5.5 (on the local Qwen, at US$ 0, in older days) and every demo agent has a month of plausible usage.
+- Bottom bar: buttons no longer wrap on narrow windows; the help text and the chain summary shrink first.
+
 ## 0.3.0 — 2026-11-08
 
 - **Conversas.** A messenger-style window (bottom bar button or `C`): every agent is a contact with its status, what it is doing and the last message; search across agents and message text (accent-insensitive, `/api/conversas/busca`); filters (all / working / unread) and unread badges; chat bubbles with day separators, ✓/✓✓, "digitando…" while the agent answers, long answers folded; "Ver no escritório" jumps to the person in 3D. The demand checkbox for the Arquiteto starts unchecked here and remembers your choice.

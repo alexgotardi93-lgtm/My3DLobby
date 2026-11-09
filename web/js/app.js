@@ -5,6 +5,7 @@ import { buildOffice } from './office.js';
 import { Character } from './characters.js';
 import { initialLang, setLang, lang, t } from './i18n.js';
 import { setupConversas, updateConversas, openConversas, conversasKey, markSeen, agoraLine, agoraBox, tickSince } from './conversas.js';
+import { setupUso, updateUsoPill, usoKey, openUso, refreshUso, fmtUsd, fmtTok } from './uso.js';
 
 const POLL_MS = 3000;
 const $ = (id) => document.getElementById(id);
@@ -115,6 +116,7 @@ function applyState(s) {
   renderFeed(s);
   if (selected) renderPanel(selected);
   updateConversas(s);
+  updateUsoPill(s);
 }
 
 function setNight(night) {
@@ -195,6 +197,7 @@ function renderPanel(id) {
   $('panel-model').textContent = (a.model || '—') + (a.model && a.model_local ? ` (${t('cv_local')})` : '');
   $('panel-runs').textContent = a.runs_today;
   $('panel-msgs').textContent = a.messages_today;
+  $('panel-uso').textContent = a.uso_hoje ? `${fmtUsd(a.uso_hoje.usd)} · ${fmtTok(a.uso_hoje.tokens)} ${t('uso_tok')}` : '—';
   $('panel-last').textContent = a.last_activity ? fmtDate(a.last_activity) : t('never');
   const crons = $('panel-crons'); crons.innerHTML = '';
   if (!a.crons.length) crons.innerHTML = `<li><span class="t">${t('none')}</span></li>`;
@@ -311,16 +314,18 @@ canvas.addEventListener('pointerup', (e) => {
 $('panel-close').onclick = () => select(null);
 $('panel-agora').onclick = (e) => { const b = e.target.closest('.a-open'); if (b) openConversas(b.dataset.agent); };
 setupConversas({ onShow: (id) => select(id) });
+setupUso();
 $('btn-overview').onclick = goOverview;
 $('btn-follow').onclick = () => { if (!selected) return; follow = !follow; $('btn-follow').classList.toggle('active', follow); };
 $('feed-toggle').onclick = () => { const f = $('feed'); f.classList.toggle('collapsed'); $('feed-toggle').textContent = f.classList.contains('collapsed') ? '+' : '–'; };
-$('btn-lang').onclick = () => { setLang(lang === 'pt' ? 'en' : 'pt'); $('btn-lang').textContent = lang === 'pt' ? 'EN' : 'PT'; if (lastState) applyState(lastState); renderConn(); };
+$('btn-lang').onclick = () => { setLang(lang === 'pt' ? 'en' : 'pt'); $('btn-lang').textContent = lang === 'pt' ? 'EN' : 'PT'; if (lastState) applyState(lastState); renderConn(); refreshUso(); };
 $('btn-lang').textContent = lang === 'pt' ? 'EN' : 'PT';
 window.addEventListener('keydown', (e) => {
-  if (conversasKey(e)) return;
+  if (conversasKey(e) || usoKey(e)) return;
   if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) { if (e.key === 'Escape') e.target.blur(); return; }
   if (e.key === 'Escape') select(null);
   if (e.key === 'c' || e.key === 'C') { e.preventDefault(); openConversas(selected); return; }
+  if (e.key === 'u' || e.key === 'U') { e.preventDefault(); openUso(); return; }
   if (e.key === 'f' || e.key === 'F') $('btn-follow').click();
   if (e.key === 'o' || e.key === 'O') goOverview();
   const n = parseInt(e.key, 10);

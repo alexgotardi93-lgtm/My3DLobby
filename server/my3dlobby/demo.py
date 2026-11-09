@@ -6,16 +6,18 @@ scene developed) on a machine without Hermes.
 from __future__ import annotations
 
 import random
-from datetime import datetime, timedelta
+import time
+from datetime import datetime, time as dtime, timedelta
 
 from .chat import ChatHub
 from .config import Config
 from .hermes import now_local
+from .uso import PERIODOS, agregar, janela, pecas_da_sessao
 
 DEMO_AGENTS = [
     {"id": "zap", "name": "Zap", "role": "Atendimento WhatsApp", "color": "#2f8f6f", "model": "claude-haiku-5-5"},
     {"id": "financeiro", "name": "Financeiro", "role": "Notas fiscais", "color": "#3b6fd8", "model": "claude-sonnet-5-5"},
-    {"id": "dev", "name": "Dev", "role": "Desenvolvimento", "color": "#c9a227", "model": "dev-qwen27", "model_local": True},
+    {"id": "dev", "name": "Dev", "role": "Desenvolvimento", "color": "#c9a227", "model": "claude-sonnet-5-5"},
     {"id": "arquiteto", "name": "Arquiteto", "role": "Planos e melhorias", "color": "#d8663b", "model": "claude-opus-5-5"},
     {"id": "reviewer", "name": "Reviewer", "role": "Revisão de PR", "color": "#8c5bd8", "model": "claude-opus-5-5"},
 ]
@@ -61,6 +63,50 @@ DEMO_EVENTS = [
     (23, "plano", "D-20261108-1921-faxina-b-guia", "Faxina parte b — guia", "pronto", "em-execucao", ""),
     (4, "demanda", "D-20261108-2013-vigia-de-logs", "Vigia de logs: SuperCota, Consultec e BPGCompras", "novo", "em-avaliacao", ""),
 ]
+
+
+# fake usage per agent: sessions per weekday (min, max), API calls per session, prompt tokens per call,
+# output tokens per call, model. The Dev ran on a local model (free) until four days ago.
+USO_DEMO = {
+    "zap": ((14, 30), (3, 12), (18_000, 55_000), 350, "claude-haiku-5-5"),
+    "financeiro": ((5, 10), (6, 18), (25_000, 50_000), 550, "claude-sonnet-5-5"),
+    "dev": ((1, 3), (50, 140), (45_000, 95_000), 1300, "claude-sonnet-5-5"),
+    "arquiteto": ((2, 6), (12, 38), (35_000, 85_000), 1100, "claude-opus-5-5"),
+    "reviewer": ((1, 5), (8, 26), (28_000, 70_000), 750, "claude-opus-5-5"),
+}
+
+
+def sessoes_demo(agente: str, desde: float, ate: float) -> list:
+    """Deterministic fake sessions (same numbers on every refresh), as uso.pecas_da_sessao() dicts."""
+    por_dia, chamadas, prompt, saida, modelo = USO_DEMO[agente]
+    out = []
+    dia, fim = datetime.fromtimestamp(desde).date(), datetime.fromtimestamp(ate).date()
+    while dia <= fim:
+        rng = random.Random(f"{agente}-{dia.isoformat()}")
+        lo, hi = por_dia
+        n = rng.randint(lo, hi) if dia.weekday() < 5 else rng.randint(0, max(1, lo // 2))
+        local = agente == "dev" and (fim - dia).days >= 4
+        for k in range(n):
+            ts = datetime.combine(dia, dtime(8)) + timedelta(hours=rng.uniform(0, 12))
+            c = rng.randint(*chamadas)
+            p = rng.randint(*prompt)
+            o = int(saida * rng.uniform(0.6, 1.4))
+            if not desde <= ts.timestamp() < ate:
+                continue
+            if local:  # Ollama: no prompt cache, nothing billed
+                linha = {"model": "dev-qwen27", "billing_provider": "custom", "billing_base_url": "http://127.0.0.1:11434/v1",
+                         "billing_mode": "unknown", "input_tokens": c * p, "output_tokens": c * o, "cache_read_tokens": 0,
+                         "cache_write_tokens": 0, "reasoning_tokens": 0, "api_call_count": c, "cost_status": "unknown"}
+            else:
+                linha = {"model": modelo, "billing_provider": "anthropic", "billing_base_url": "", "billing_mode": "official_docs_snapshot",
+                         "input_tokens": int(c * p * 0.035), "cache_write_tokens": int(c * p * 0.06), "cache_read_tokens": int(c * p * 0.905),
+                         "output_tokens": c * o, "reasoning_tokens": 0, "api_call_count": c, "cost_status": "unknown"}
+            sid = f"demo-{agente}-{dia.isoformat()}-{k}"
+            aux = [{"session_id": sid, "model": "claude-haiku-5-5", "task": "title_generation", "billing_provider": "anthropic",
+                    "input_tokens": 900, "output_tokens": 18, "api_call_count": 1, "cost_status": "unknown"}] if not local else []
+            out.append(pecas_da_sessao({"id": sid, "started_at": ts.timestamp(), **linha}, aux))
+        dia += timedelta(days=1)
+    return out
 
 
 class DemoChat:
@@ -150,6 +196,21 @@ class DemoReader:
     def agent_ids(self):
         return [a["id"] for a in DEMO_AGENTS]
 
+    def uso_resumo(self, periodo: str) -> dict:
+        periodo = periodo if periodo in PERIODOS else "mes"
+        agora = time.time()
+        desde, ate, _, _ = janela(periodo, agora)
+        agentes = [{k: a.get(k) for k in ("id", "name", "color", "role", "model", "model_local")} for a in DEMO_AGENTS]
+        return agregar(agentes, {a["id"]: sessoes_demo(a["id"], desde, ate) for a in DEMO_AGENTS}, periodo, agora)
+
+    def _uso_hoje(self) -> dict:
+        if time.time() - getattr(self, "_uso_t", 0) > 30:
+            r = self.uso_resumo("hoje")
+            self._uso = {"usd": r["total"]["usd"], "tokens": r["total"]["tokens"]["total"],
+                         "agentes": {a["id"]: {"usd": a["usd"], "tokens": a["tokens"]["total"]} for a in r["agentes"]}}
+            self._uso_t = time.time()
+        return self._uso
+
     def _tick(self, when: datetime) -> None:
         for a in DEMO_AGENTS:
             s = self.state[a["id"]]
@@ -174,6 +235,7 @@ class DemoReader:
     def snapshot(self) -> dict:
         when = now_local()
         self._tick(when)
+        uso = self._uso_hoje()
         agents = []
         for i, a in enumerate(DEMO_AGENTS):
             s = self.state[a["id"]]
@@ -186,6 +248,7 @@ class DemoReader:
                 "last_activity": when.isoformat(timespec="seconds"),
                 "runs_today": s["runs"],
                 "messages_today": s["runs"],
+                "uso_hoje": uso["agentes"].get(a["id"]),
                 "crons": [{"id": "demo", "state": "active", "name": f"{a['name']} - rotina", "schedule": "*/5 8-20 * * *",
                            "next_run": (when + timedelta(minutes=3)).isoformat(timespec="minutes"), "last_run": when.isoformat(timespec="minutes"),
                            "last_ok": True, "script": "rotina.py"}],
@@ -204,6 +267,7 @@ class DemoReader:
             "feed": self.feed[:60],
             "cadeia": self._cadeia(when),
             "conversas": self.chat.resumo(),
+            "uso": {"usd": uso["usd"], "tokens": uso["tokens"]},
         }
 
     def _agora(self, a: dict, when: datetime):

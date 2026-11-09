@@ -39,6 +39,7 @@
     <dt data-i18n="model">Modelo</dt><dd id="panel-model">—</dd>
     <dt data-i18n="runs_today">Execuções hoje</dt><dd id="panel-runs">0</dd>
     <dt data-i18n="messages_today">Mensagens hoje</dt><dd id="panel-msgs">0</dd>
+    <dt data-i18n="panel_uso">Custo hoje</dt><dd id="panel-uso">—</dd>
     <dt data-i18n="last_activity">Última atividade</dt><dd id="panel-last">—</dd>
   </dl>
   <h3 data-i18n="talk">Falar com o agente</h3>
@@ -75,6 +76,10 @@
     <span data-i18n="conversas">Conversas</span><span id="cv-badge" class="cv-badge hidden">0</span>
   </button>
   <button id="cadeia-pill" class="cadeia-pill" title="Cadeia"><span class="pdot"></span><span id="cadeia-text">…</span></button>
+  <button id="btn-uso" class="cv-open uso-open" data-i18n-title="uso_btn_title" title="Controle de uso (U)">
+    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M5 20V12M10 20V5M15 20v-9M20 20V8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    <span data-i18n="uso">Uso</span><span id="uso-hoje" class="uso-hoje"></span>
+  </button>
   <span class="sep">·</span>
   <button id="btn-overview" data-i18n="overview">Visão geral</button>
   <button id="btn-follow" data-i18n="follow">Seguir</button>
@@ -137,6 +142,53 @@
       </div>
     </section>
   </div>
+</div>
+
+<div id="uso" class="uso hidden" role="dialog" aria-modal="true" aria-labelledby="uso-title">
+  <div class="uso-win">
+    <header class="uso-head">
+      <div class="uso-titles">
+        <b id="uso-title" data-i18n="uso_title">Controle de uso</b>
+        <small data-i18n="uso_sub">Tokens e custo em dólar de cada agente</small>
+      </div>
+      <button id="uso-close" class="cv-icon" data-i18n-title="cv_close" title="Fechar (Esc)">×</button>
+    </header>
+    <div class="uso-bar">
+      <div class="uso-seg" id="uso-periodos" role="group">
+        <button data-p="hoje" data-i18n="uso_p_hoje">Hoje</button>
+        <button data-p="7d" data-i18n="uso_p_7d">7 dias</button>
+        <button data-p="mes" data-i18n="uso_p_mes">Este mês</button>
+        <button data-p="30d" data-i18n="uso_p_30d">30 dias</button>
+      </div>
+      <div class="uso-seg" id="uso-metrica" role="group">
+        <button data-m="usd" data-i18n="uso_m_usd">US$</button>
+        <button data-m="tokens" data-i18n="uso_m_tokens">Tokens</button>
+      </div>
+      <span id="uso-stamp" class="uso-stamp"></span>
+    </div>
+    <div class="uso-scroll">
+      <div id="uso-msg" class="uso-msg"></div>
+      <div id="uso-body" class="uso-body hidden">
+        <section id="uso-kpis" class="uso-kpis"></section>
+        <section class="uso-grid">
+          <div class="uso-card">
+            <div class="uso-card-head"><h4 id="uso-h-rank">Por agente</h4></div>
+            <div id="uso-rank" class="uso-rank"></div>
+          </div>
+          <div class="uso-card">
+            <div class="uso-card-head"><h4 id="uso-h-tempo">Por dia</h4><div id="uso-legend" class="uso-legend"></div></div>
+            <div id="uso-chart" class="uso-chart"></div>
+          </div>
+        </section>
+        <section class="uso-card">
+          <div class="uso-card-head"><h4 data-i18n="uso_detalhe">Detalhe por agente</h4></div>
+          <div class="uso-table-wrap"><table id="uso-table" class="uso-table"></table></div>
+        </section>
+        <div id="uso-note" class="uso-note"></div>
+      </div>
+    </div>
+  </div>
+  <div id="uso-tip" class="uso-tip hidden" role="tooltip"></div>
 </div>
 
 <div id="loading"><div class="spinner"></div><div data-i18n="loading">Abrindo o escritório…</div></div>

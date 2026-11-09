@@ -5,6 +5,7 @@
   GET  /api/chat?agent=X     -> the conversation with one agent
   POST /api/chat             -> {"agent", "text", "demanda"}: talk to an agent (local only)
   GET  /api/conversas/busca?q=  -> messages containing q, across all agents
+  GET  /api/uso?periodo=hoje|7d|mes|30d -> tokens and US$ per agent, per day (or hour) and in total
   GET  /api/health           -> {"ok": true}
 """
 from __future__ import annotations
@@ -72,6 +73,13 @@ def make_handler(reader, cfg: Config):
                 from urllib.parse import parse_qs
                 q = (parse_qs(query).get("q") or [""])[0]
                 return self._json({"q": q, "results": reader.chat.buscar(q)})
+            if path == "/api/uso":
+                from urllib.parse import parse_qs
+                periodo = (parse_qs(query).get("periodo") or ["mes"])[0]
+                try:
+                    return self._json(reader.uso_resumo(periodo))
+                except Exception as e:  # a locked or odd state.db must not take the page down
+                    return self._json({"ok": False, "erro": f"uso: {e}"}, 500)
             if path == "/api/health":
                 return self._json({"ok": True, "version": __version__, "office": cfg.office_name})
             if path == "/":

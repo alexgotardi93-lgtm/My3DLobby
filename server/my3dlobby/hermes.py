@@ -5,7 +5,8 @@ Sources (all read-only):
   * ~/.hermes/profiles/<p>/config.yaml -> only the `model:` block (name, local or not) and
                                           `agent.max_turns`; re-read whenever the file changes
   * ~/.hermes/profiles/<p>/state.db    -> the step being executed now (see atividade.py;
-                                          tool calls only, never outputs; secrets masked)
+                                          tool calls only, never outputs; secrets masked) and
+                                          the tokens and US$ of each session (see uso.py)
   * <lobby>/arquiteto/planos/*.md      -> where each plan is in the chain (headers only)
   * ~/.hermes/profiles/<p>/logs/gateway.log
         "inbound message: platform=... chat=... msg=..."  -> the agent starts working
@@ -31,6 +32,7 @@ from typing import Optional
 from .atividade import AgoraReader, CadeiaReader
 from .chat import ChatHub
 from .config import PALETTE, AgentConfig, Config, SignalConfig
+from .uso import UsoReader
 
 LOG_LINE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),(\d{3}) (\w+) ([\w.\-]+): (.*)$")
 INBOUND = re.compile(r"inbound message: platform=(\S+)(?: user=(\S+))? chat=(\S+) msg=(.*)$")
@@ -308,10 +310,30 @@ class HermesReader:
         self.chat = ChatHub(cfg, self.hermes_bin)
         self.agora = AgoraReader(self.home)
         self.cadeia = CadeiaReader(Path(cfg.lobby_dir).expanduser())
+        self.uso = UsoReader(self.home)
+        self.uso_hoje: dict = {}
+        self.last_uso = 0.0
 
     def agent_ids(self) -> list[str]:
         with self.lock:
             return list(self.agents)
+
+    # ---------------------------------------------------------------- usage and cost
+    def _agentes_uso(self) -> list[dict]:
+        with self.lock:
+            return [{"id": st.profile, "name": st.name, "color": st.color, "role": st.role, "model": st.model,
+                     "model_local": st.model_local} for st in self.agents.values()]
+
+    def uso_resumo(self, periodo: str) -> dict:
+        """GET /api/uso: tokens and US$ per agent in the period (sqlite reads happen outside the lock)."""
+        return self.uso.resumo(self._agentes_uso(), periodo)
+
+    def _atualizar_uso_hoje(self) -> None:
+        self.last_uso = time.time()
+        try:
+            self.uso_hoje = self.uso.hoje(self._agentes_uso())
+        except Exception as e:  # never let usage break the office
+            self._note_error(f"uso: {e}")
 
     # ---------------------------------------------------------------- discovery
     def _find_hermes(self) -> str:
@@ -552,6 +574,7 @@ class HermesReader:
                     "last_activity": st.last_activity.isoformat(timespec="seconds") if st.last_activity else "",
                     "runs_today": st.runs_today,
                     "messages_today": st.messages_today,
+                    "uso_hoje": (self.uso_hoje.get("agentes") or {}).get(st.profile),
                     "crons": [j.to_json() for j in st.jobs],
                     "recent": [e.to_json() for e in reversed(recent)],
                 })
@@ -575,6 +598,7 @@ class HermesReader:
                 "feed": [e.to_json() for e in feed[:60]],
                 "cadeia": cadeia,
                 "conversas": self.chat.resumo(),
+                "uso": {"usd": self.uso_hoje.get("usd"), "tokens": self.uso_hoje.get("tokens")} if self.uso_hoje else None,
             }
 
     # ---------------------------------------------------------------- loop
@@ -592,6 +616,8 @@ class HermesReader:
                 if time.time() - self.last_discovery > 60:
                     self.discover()
                 self.poll_logs()
+                if time.time() - self.last_uso >= 60:
+                    self._atualizar_uso_hoje()
             except Exception as e:  # keep the loop alive
                 self._note_error(f"logs: {e}")
             self._stop.wait(self.cfg.poll_seconds)
