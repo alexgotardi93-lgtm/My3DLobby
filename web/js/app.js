@@ -7,6 +7,7 @@ import { initialLang, setLang, lang, t } from './i18n.js';
 import { setupConversas, updateConversas, openConversas, conversasKey, markSeen, agoraLine, agoraBox, tickSince } from './conversas.js';
 import { setupUso, updateUsoPill, usoKey, openUso, refreshUso, fmtUsd, fmtTok } from './uso.js';
 import { setupAprovacao, updateAprovacao, openAprovacao, aprovacaoKey, filaResumo, refreshAprovacao } from './aprovacao.js';
+import { setupCadeia, updateCadeia, openCadeia, cadeiaKey, refreshCadeia } from './cadeia.js';
 
 const POLL_MS = 3000;
 const $ = (id) => document.getElementById(id);
@@ -121,6 +122,7 @@ function applyState(s) {
   if (selected) renderPanel(selected);
   updateConversas(s);
   updateUsoPill(s);
+  updateCadeia(s);
 }
 
 function setNight(night) {
@@ -330,22 +332,24 @@ canvas.addEventListener('pointerup', (e) => {
 // ---------------------------------------------------------------- UI wiring
 $('panel-close').onclick = () => select(null);
 $('panel-agora').onclick = (e) => { const b = e.target.closest('.a-open'); if (b) openConversas(b.dataset.agent); };
-setupConversas({ onShow: (id) => select(id) });
+setupConversas({ onShow: (id) => select(id), onCadeia: () => openCadeia() });
 setupUso();
 setupAprovacao({ onDecidiu: () => poll(), onAbrirAgente: (id) => select(id) });
+setupCadeia({ onAbrirFila: () => openAprovacao(), onVerAgente: (id) => select(id) });
 $('panel-fila').onclick = (e) => { if (e.target.closest('.pf-open')) openAprovacao(); };
 $('btn-overview').onclick = goOverview;
 $('btn-follow').onclick = () => { if (!selected) return; follow = !follow; $('btn-follow').classList.toggle('active', follow); };
 $('feed-toggle').onclick = () => { const f = $('feed'); f.classList.toggle('collapsed'); $('feed-toggle').textContent = f.classList.contains('collapsed') ? '+' : '–'; };
-$('btn-lang').onclick = () => { setLang(lang === 'pt' ? 'en' : 'pt'); $('btn-lang').textContent = lang === 'pt' ? 'EN' : 'PT'; if (lastState) applyState(lastState); renderConn(); refreshUso(); refreshAprovacao(); };
+$('btn-lang').onclick = () => { setLang(lang === 'pt' ? 'en' : 'pt'); $('btn-lang').textContent = lang === 'pt' ? 'EN' : 'PT'; if (lastState) applyState(lastState); renderConn(); refreshUso(); refreshAprovacao(); refreshCadeia(); };
 $('btn-lang').textContent = lang === 'pt' ? 'EN' : 'PT';
 window.addEventListener('keydown', (e) => {
-  if (conversasKey(e) || usoKey(e) || aprovacaoKey(e)) return;
+  if (conversasKey(e) || usoKey(e) || aprovacaoKey(e) || cadeiaKey(e)) return;
   if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) { if (e.key === 'Escape') e.target.blur(); return; }
   if (e.key === 'Escape') select(null);
   if (e.key === 'c' || e.key === 'C') { e.preventDefault(); openConversas(selected); return; }
   if (e.key === 'u' || e.key === 'U') { e.preventDefault(); openUso(); return; }
   if ((e.key === 'a' || e.key === 'A') && filaResumo()) { e.preventDefault(); openAprovacao(); return; }
+  if (e.key === 'q' || e.key === 'Q') { e.preventDefault(); openCadeia(); return; }
   if (e.key === 'f' || e.key === 'F') $('btn-follow').click();
   if (e.key === 'o' || e.key === 'O') goOverview();
   const n = parseInt(e.key, 10);

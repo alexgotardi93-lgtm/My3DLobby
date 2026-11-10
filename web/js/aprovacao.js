@@ -37,9 +37,15 @@ function ha(iso) {
 }
 
 function rotulo(it) {
-  if (it.tipo === 'plano') return it.status === 'aguardando-aprovacao' ? t('ap_o').plano_segurado : t('ap_o').plano;
+  if (it.tipo === 'plano') {
+    if (it.status === 'aguardando-aprovacao') return t('ap_o').plano_segurado;
+    if (it.status === 'escalar-arquiteto') return t('ap_o').plano_volta;
+    return t('ap_o').plano;
+  }
   return t('ap_o')[it.origem] || it.origem;
 }
+const ehPlano = (it) => it.tipo === 'plano';
+function rotuloAprovar(it) { return (t('ap_ok') || {})[ehPlano(it) ? it.status : it.tipo] || t('ap_aprovar'); }
 
 function prLink(pr) {
   if (!pr) return '';
@@ -59,9 +65,10 @@ function textoDetalhe(texto) {  // header lines dimmed, '## ' headings bold
 
 function dica(it) {
   if (it.tipo === 'plano' && it.status === 'aguardando-alex') return t('ap_dica_plano');
+  if (it.tipo === 'plano' && it.status === 'escalar-arquiteto') return t('ap_dica_volta');
   if (it.tipo === 'plano') return t('ap_dica_segurado');
   if (it.tipo === 'retorno') return t('ap_dica_retorno');
-  return '';
+  return t('ap_dica_item');
 }
 
 function htmlCartao(it) {
@@ -100,7 +107,7 @@ function htmlCartao(it) {
     h += `<div class="ap-actions"><button class="ap-link" data-x="ver">${esc(abrir ? t('ap_menos') : t('ap_ver'))}</button><span class="ap-sp"></span>`
       + `<button class="ap-b" data-a="b"${dis}>${esc(t('ap_backlog'))}</button>`
       + `<button class="ap-b danger-outline" data-a="r"${dis}>${esc(t('ap_recusar'))}</button>`
-      + `<button class="ap-b primary" data-a="a"${dis}>${ocupado ? `<span class="spinner small"></span>` : ''}${esc(t('ap_aprovar'))}</button></div>`;
+      + `<button class="ap-b primary" data-a="a"${dis}>${ocupado ? `<span class="spinner small"></span>` : ''}${esc(rotuloAprovar(it))}</button></div>`;
   }
   if (it.erro) h += `<div class="ap-err">${esc(it.erro)}</div>`;
   return h + '</article>';
@@ -123,7 +130,6 @@ function render() {
   trava.innerHTML = S && S.disponivel ? `<span class="pdot"></span>${esc(S.trava ? t('ap_trava_on') : t('ap_trava_off'))}` : '';
   trava.title = S && !S.trava ? t('ap_trava_off_dica') : '';
   const msg = $('ap-msg');
-  const lista = $('ap-list');
   let aviso = '';
   if (!S) aviso = t('ap_lendo');
   else if (!S.disponivel) aviso = tr(t('ap_indisponivel'), { p: S.programa || '' });
@@ -133,6 +139,15 @@ function render() {
   msg.classList.toggle('hidden', !aviso);
   const itens = S && S.disponivel ? itensVisiveis() : [];
   $('ap-empty').classList.toggle('hidden', !(S && S.disponivel && !itens.length));
+  const entradas = itens.filter((i) => !ehPlano(i));
+  const planos = itens.filter(ehPlano);
+  $('ap-sec-itens').classList.toggle('hidden', !entradas.length);
+  $('ap-sec-planos').classList.toggle('hidden', !planos.length);
+  renderLista($('ap-list-itens'), entradas);
+  renderLista($('ap-list-planos'), planos);
+}
+
+function renderLista(lista, itens) {
   // keyed update: untouched cards keep their DOM (focus in the reason box and text selection survive the poll)
   const vistos = new Set();
   let antes = null;
@@ -271,8 +286,8 @@ export function setupAprovacao({ onDecidiu, onAbrirAgente } = {}) {
   $('ap-close').onclick = closeAprovacao;
   $('ap-arch').onclick = () => { closeAprovacao(); if (aoAbrirAgente) aoAbrirAgente(S && S.agente || 'arquiteto'); };
   $('aprovacao').addEventListener('mousedown', (e) => { if (e.target.id === 'aprovacao') closeAprovacao(); });
-  $('ap-list').addEventListener('input', (e) => { if (e.target.classList.contains('ap-motivo') && pedindo) pedindo.motivo = e.target.value; });
-  $('ap-list').addEventListener('click', (e) => {
+  $('ap-listas').addEventListener('input', (e) => { if (e.target.classList.contains('ap-motivo') && pedindo) pedindo.motivo = e.target.value; });
+  $('ap-listas').addEventListener('click', (e) => {
     const card = e.target.closest('article[data-chave]');
     if (!card || card.classList.contains('done')) return;
     const chave = card.dataset.chave;

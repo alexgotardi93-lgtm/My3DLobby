@@ -80,7 +80,7 @@
     <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m8 12.2 2.7 2.7L16.2 9.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <span data-i18n="ap_btn">Aprovar</span><span id="ap-badge" class="ap-badge hidden">0</span>
   </button>
-  <button id="cadeia-pill" class="cadeia-pill" title="Cadeia"><span class="pdot"></span><span id="cadeia-text">…</span></button>
+  <button id="cadeia-pill" class="cadeia-pill" title="Cadeia (Q)"><span class="pdot"></span><span id="cadeia-text">…</span></button>
   <button id="btn-uso" class="cv-open uso-open" data-i18n-title="uso_btn_title" title="Controle de uso (U)">
     <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M5 20V12M10 20V5M15 20v-9M20 20V8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
     <span data-i18n="uso">Uso</span><span id="uso-hoje" class="uso-hoje"></span>
@@ -196,6 +196,26 @@
   <div id="uso-tip" class="uso-tip hidden" role="tooltip"></div>
 </div>
 
+<div id="cadeia" class="cd hidden" role="dialog" aria-modal="true" aria-labelledby="cd-title">
+  <div class="cd-win">
+    <header class="cd-head">
+      <div class="cd-titles">
+        <b id="cd-title" data-i18n="cd_title">Cadeia</b>
+        <small data-i18n="cd_sub">Onde está cada coisa e com quem está agora</small>
+      </div>
+      <span id="cd-trava" class="ap-trava"></span>
+      <input id="cd-q" class="cd-q" type="search" autocomplete="off" spellcheck="false" data-i18n-ph="cd_busca" placeholder="Procurar">
+      <button id="cd-hist-btn" class="cd-hist-btn" data-i18n="cd_hist">Histórico</button>
+      <button id="cd-close" class="cv-icon" data-i18n-title="cv_close" title="Fechar (Esc)">×</button>
+    </header>
+    <div id="cd-msg" class="cd-msg hidden"></div>
+    <div class="cd-body">
+      <div id="cd-cols" class="cd-cols"></div>
+      <aside id="cd-hist" class="cd-hist"></aside>
+    </div>
+  </div>
+</div>
+
 <div id="aprovacao" class="ap hidden" role="dialog" aria-modal="true" aria-labelledby="ap-title">
   <div class="ap-win">
     <header class="ap-head">
@@ -217,7 +237,18 @@
         <h3 data-i18n="ap_vazio">Nada esperando você</h3>
         <p data-i18n="ap_vazio_sub">Quando chegar algo pelo WhatsApp, pela Sentinela, uma demanda ou um plano pedir a sua decisão, aparece aqui.</p>
       </div>
-      <div id="ap-list" class="ap-list"></div>
+      <div id="ap-listas">
+        <section id="ap-sec-itens" class="ap-sec hidden">
+          <h4 data-i18n="ap_sec_itens">Pode virar plano?</h4>
+          <p data-i18n="ap_sec_itens_sub">Chegou ao Arquiteto. Aprovar = ele pode criar o plano (usa o Opus).</p>
+          <div id="ap-list-itens" class="ap-list"></div>
+        </section>
+        <section id="ap-sec-planos" class="ap-sec hidden">
+          <h4 data-i18n="ap_sec_planos">Planos esperando você</h4>
+          <p data-i18n="ap_sec_planos_sub">O plano já existe. Aprovar = ele segue em frente.</p>
+          <div id="ap-list-planos" class="ap-list"></div>
+        </section>
+      </div>
     </div>
   </div>
 </div>
