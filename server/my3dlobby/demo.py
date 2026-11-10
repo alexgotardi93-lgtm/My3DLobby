@@ -77,6 +77,122 @@ DEMO_EVENTS = [
 ]
 
 
+# the whole chain board: (tipo, id, titulo, status, minutes in this state, extra header fields)
+DEMO_QUADRO = [
+    ("item", "2026-11-10-0802-cesta-arredondamento", "Cesta de preços: explicar o arredondamento do valor de referência",
+     "novo", 96, {"origem": "Cliente da prefeitura (WhatsApp)"}),
+    ("item", "SENT-20261109-1940-diario", "Sentinela: 546 de CPU na extrair-anexos e lentidão nas notificações",
+     "em-triagem", 12, {"origem": "Monitor de logs (Sentinela)"}),
+    ("demanda", "D-20261108-2013-vigia-de-logs", "Vigia de logs: SuperCota, Consultec e BPGCompras", "em-avaliacao", 4,
+     {"origem": "Alex (pelo lobby)", "aprovado": True}),
+    ("plano", "D-20261110-0235-saude-por-municipio-contrato", "Saúde por município: guardar o vencimento do contrato",
+     "aguardando-alex", 460, {}),
+    ("plano", "D-20261110-0110-coletor-de-erros-sentry-edge", "Sentry nas edge functions, ligado no servir() da plataforma",
+     "escalar-arquiteto", 620, {"pr": "480"}),
+    ("plano", "D-20261108-1502-cesta-manual-a", "Remover a cesta manual (parte a)", "aprovado", 34, {"pr": "471"}),
+    ("plano", "D-20261110-1030-relatorio-semanal-rascunho", "Relatório semanal de uso por município", "rascunho", 6, {}),
+    ("plano", "D-20261108-1921-faxina-b-guia", "Faxina parte b — guia", "em-execucao", 23, {}),
+    ("plano", "D-20261108-1921-faxina-b-codigo", "Faxina parte b — código", "pronto", 30,
+     {"depende": "D-20261108-1921-faxina-b-guia"}),
+    ("plano", "D-20261110-0150-banco-de-avaliacao-da-ia-runner", "Banco de avaliação da IA: o runner", "pronto", 50, {}),
+    ("plano", "D-20261110-0110-coletor-de-erros-sentry-edge-funcoes", "Sentry nas funções: coletor de erros", "pronto", 200,
+     {"depende": "D-20261110-0110-coletor-de-erros-sentry-edge"}),
+    ("plano", "D-20261110-0235-saude-por-municipio-rpc", "Saúde por município: função só de leitura", "em-revisao", 15,
+     {"pr": "484"}),
+    ("plano", "D-20261110-0130-seguranca-continua-ci-relatorio", "Relatório de segurança no CI", "revisando", 8, {"pr": "482"}),
+    ("plano", "D-20261110-0130-seguranca-continua-ci-dependabot", "Dependabot semanal", "concluido", 150, {"pr": "481"}),
+    ("plano", "D-20261110-0230-oportunidades-pncp-filtro-ia", "Filtro com IA nas oportunidades do PNCP", "backlog", 600, {}),
+    ("demanda", "D-20261106-1006-limpeza-cesta-manual", "Limpeza da cesta manual antiga", "backlog", 2000, {}),
+]
+
+DEMO_EVENTOS_2 = [
+    (50, "plano", "D-20261110-0235-saude-por-municipio-rpc", "Saúde por município: função só de leitura", "aguardando-alex", "em-revisao", "484"),
+    (45, "plano", "D-20261110-0110-coletor-de-erros-sentry-edge", "Sentry nas edge functions", "em-execucao", "escalar-arquiteto", "480"),
+    (20, "item", "SENT-20261109-1940-diario", "Sentinela: 546 de CPU na extrair-anexos", "novo", "em-triagem", ""),
+    (8, "plano", "D-20261110-0130-seguranca-continua-ci-relatorio", "Relatório de segurança no CI", "em-revisao", "revisando", "482"),
+]
+
+# fake "Fila do Arquiteto": what waits for Alex's approval (aprovacao.AprovacaoReader reads the real one)
+DEMO_FILA = [
+    {"tipo": "item", "id": "2026-11-10-0802-cesta-arredondamento", "status": "novo", "minutos": 96,
+     "titulo": "Cesta de preços: a Metodologia passa a explicar o arredondamento do valor de referência",
+     "quem": "Cliente da prefeitura (WhatsApp, conversa individual)",
+     "sugestao": "plano — pedido claro, mexe só no texto da Metodologia",
+     "resumo": "No relatório diário a cesta deu R$ 1.200.110,00 no SuperCota e R$ 1.200.087,00 na conta da cliente. "
+               "Ela quer entender a diferença de R$ 23,00 antes de mandar o processo ao controle interno."},
+    {"tipo": "item", "id": "SENT-20261109-1940-diario", "status": "em-triagem", "minutos": 790,
+     "titulo": "Sentinela: 546 de CPU na extrair-anexos e lentidão nas notificações",
+     "quem": "Monitor de logs (Sentinela)", "sugestao": "",
+     "resumo": "Relatório do Conferente: A1 extrair-anexos estourou a CPU 7 vezes em 1.095 chamadas (0,6%), S3, novo. "
+               "A2 notificacoes_listar falhou por tempo em 46 de 370 chamadas (12%), S2, novo."},
+    {"tipo": "demanda", "id": "D-20261110-0930-relatorio-semanal-por-municipio", "status": "novo", "minutos": 38,
+     "titulo": "Relatório semanal de uso por município", "quem": "Claude (pedido do Alex no chat)", "sugestao": "",
+     "resumo": "Toda segunda de manhã, uma linha por município: usuários ativos, demandas na semana contra a média das "
+               "4 semanas anteriores e erros de tela. Só leitura."},
+    {"tipo": "retorno", "id": "D-20261110-0110-coletor-de-erros-sentry-edge", "status": "novo", "minutos": 450,
+     "titulo": "Sentry nas funções: o Dev parou num passo impossível do plano", "quem": "Dev", "sugestao": "",
+     "resumo": "O passo 4 manda importar sentrySdk.ts em todas as funções, mas 3 delas são legado sem withAuth. "
+               "Refazer o plano custa uma rodada do Opus."},
+    {"tipo": "plano", "id": "D-20261110-0235-saude-por-municipio-contrato", "status": "aguardando-alex", "minutos": 460,
+     "titulo": "Saúde por município: guardar o vencimento do contrato de cada prefeitura",
+     "quem": "demanda:2026-11-10-0235-saude-por-municipio.md", "sugestao": "",
+     "resumo": "Perguntas para o Alex: 1. A data fica numa coluna nova, municipalities.contrato_vence_em? "
+               "2. O admin preenche na tela de municípios? Com sim às duas, o plano segue para o Dev."},
+    {"tipo": "plano", "id": "D-20261110-0235-saude-por-municipio-rpc", "status": "aguardando-alex", "minutos": 460, "pr": "484",
+     "titulo": "Saúde por município: função só de leitura com os números da semana por prefeitura",
+     "quem": "demanda:2026-11-10-0235-saude-por-municipio.md", "sugestao": "",
+     "resumo": "A função lê usuários ativos, demandas e erros por município na semana. Precisa do seu sim porque "
+               "abre uma função nova para o papel admin."},
+]
+
+
+class DemoAprovacao:
+    """Same interface as aprovacao.AprovacaoReader, in memory (decisions only last until the demo restarts)."""
+
+    def __init__(self):
+        import threading
+        from .aprovacao import montar_item
+        self.lock = threading.Lock()
+        t0 = now_local()
+        pasta = {"item": "arquiteto/entrada/{id}/item.md", "demanda": "arquiteto/demandas/{id}.md",
+                 "retorno": "arquiteto/retornos/{id}.md", "plano": "arquiteto/planos/PLANO-{id}.md"}
+        self.itens = []
+        for it in DEMO_FILA:
+            p = {**it, "quando": (t0 - timedelta(minutes=it["minutos"])).strftime("%d/%m/%Y %H:%M")}
+            self.itens.append(montar_item(p, pasta[it["tipo"]].format(id=it["id"])))
+
+    def atualizar(self, forcar: bool = False) -> None:
+        pass
+
+    def vista(self) -> dict:
+        with self.lock:
+            return {"disponivel": True, "trava": True, "n": len(self.itens), "itens": list(self.itens), "agente": "arquiteto",
+                    "erro": "", "atualizado": now_local().isoformat(timespec="seconds"), "programa": "perfis/cadeia/fila_aprovacao.py"}
+
+    def detalhe(self, chave: str) -> dict:
+        with self.lock:
+            it = next((i for i in self.itens if i["chave"] == chave), None)
+        if not it:
+            return {"ok": False, "erro": "este item não está mais na fila"}
+        texto = "\n".join([f"status: {it['status']}", f"id: {it['id']}", f"titulo: {it['titulo']}", f"quem: {it['quem']}",
+                           f"quando: {it['quando']}", "", "## Pedido", "", it["resumo"], "",
+                           "## Contexto", "", "(demo) Aqui aparece o arquivo inteiro do item: a mensagem original, os anexos "
+                           "citados e o que o Conferente anotou."])
+        return {"ok": True, "chave": chave, "texto": texto, "cortado": False}
+
+    def decidir(self, chave: str, acao: str, motivo: str = "") -> dict:
+        acao = str(acao or "").strip().lower()[:1]
+        if acao not in ("a", "r", "b"):
+            return {"ok": False, "erro": "ação inválida (a, r ou b)"}
+        with self.lock:
+            it = next((i for i in self.itens if i["chave"] == chave), None)
+            if not it:
+                return {"ok": False, "erro": "este item não está mais na fila (já foi decidido ou mudou de status)"}
+            self.itens.remove(it)
+        nome = {"a": "aprovado", "r": "recusado", "b": "backlog"}[acao]
+        return {"ok": True, "acao": acao, "chave": chave, "feito": f"(demo) {nome}: {it['id']}"}
+
+
 # fake usage per agent: sessions per weekday (min, max), API calls per session, prompt tokens per call,
 # output tokens per call, model. The Dev ran on a local model (free) until four days ago.
 USO_DEMO = {
@@ -178,6 +294,7 @@ class DemoReader:
     def __init__(self, cfg: Config):
         self.cfg = cfg
         self.chat = DemoChat()
+        self.aprovacao = DemoAprovacao()
         t0 = now_local()
         def ago(minutes):
             return (t0 - timedelta(minutes=minutes)).isoformat(timespec="seconds")
@@ -285,6 +402,7 @@ class DemoReader:
             "andares": andares,
             "feed": self.feed[:60],
             "cadeia": self._cadeia(when),
+            "aprovacao": self.aprovacao.vista(),
             "conversas": self.chat.resumo(),
             "uso": {"usd": uso["usd"], "tokens": uso["tokens"]},
         }
@@ -323,6 +441,20 @@ class DemoReader:
             **({"plano": plano} if plano else {}),
         }
 
+    def _cadeia_itens(self, when: datetime) -> list:
+        """The whole board (who has each item), built by the same rules as the real chain reader."""
+        from .atividade import CadeiaReader
+        t = when.timestamp()
+        brutos = []
+        for tipo, ident, titulo, st, minutos, extra in DEMO_QUADRO:
+            it = {"tipo": tipo, "id": ident, "titulo": titulo, "status": st, "pr": "", "ciclos": "0", "depende": "",
+                  "desde": (when - timedelta(minutes=minutos)).isoformat(timespec="minutes"), "mtime": t - minutos * 60,
+                  "arquivo": ("PLANO-" + ident + ".md") if tipo == "plano" else ident + ".md", "origem": "",
+                  "aprovado": False, "conferencia": "", "prioridade": "media", "refs": [], "criado": ""}
+            it.update(extra)
+            brutos.append(it)
+        return CadeiaReader.itens_do_quadro(brutos, True, t)
+
     def _cadeia(self, when: datetime) -> dict:
         quadro = []
         for it in DEMO_BOARD:
@@ -332,4 +464,7 @@ class DemoReader:
             quadro.append(item)
         eventos = [{"t": (when - timedelta(minutes=m)).isoformat(timespec="seconds"), "tipo": tipo, "id": i, "titulo": tt,
                     "de": de, "para": para, "pr": pr, "ciclos": "0"} for m, tipo, i, tt, de, para, pr in DEMO_EVENTS]
-        return {"quadro": quadro, "eventos": eventos, "ok": True, "erro": ""}
+        eventos += [{"t": (when - timedelta(minutes=m)).isoformat(timespec="seconds"), "tipo": tipo, "id": i, "titulo": tt,
+                     "de": de, "para": para, "pr": pr, "ciclos": "1"} for m, tipo, i, tt, de, para, pr in DEMO_EVENTOS_2]
+        eventos.sort(key=lambda e: e["t"])
+        return {"quadro": quadro, "itens": self._cadeia_itens(when), "trava": True, "eventos": eventos, "ok": True, "erro": ""}

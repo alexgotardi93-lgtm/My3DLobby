@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Optional
 
 from .andares import Andares
+from .aprovacao import AprovacaoReader
 from .atividade import AgoraReader, CadeiaReader
 from .chat import ChatHub
 from .config import PALETTE, AgentConfig, Config, SignalConfig
@@ -311,6 +312,7 @@ class HermesReader:
         self.chat = ChatHub(cfg, self.hermes_bin)
         self.agora = AgoraReader(self.home)
         self.cadeia = CadeiaReader(Path(cfg.lobby_dir).expanduser())
+        self.aprovacao = AprovacaoReader(Path(cfg.lobby_dir).expanduser(), (cfg.demand_agents or ["arquiteto"])[0])
         self.uso = UsoReader(self.home)
         self.uso_hoje: dict = {}
         self.last_uso = 0.0
@@ -397,6 +399,10 @@ class HermesReader:
             self.cadeia.atualizar()
         except Exception as e:
             self._note_error(f"cadeia: {e}")
+        try:
+            self.aprovacao.atualizar()  # every few seconds; right away after a decision
+        except Exception as e:
+            self._note_error(f"fila do Arquiteto: {e}")
 
     def _ingest_log_line(self, st: AgentState, line: str) -> None:
         m = LOG_LINE.match(line)
@@ -602,6 +608,7 @@ class HermesReader:
                 "andares": andares,
                 "feed": [e.to_json() for e in feed[:60]],
                 "cadeia": cadeia,
+                "aprovacao": self.aprovacao.vista(),
                 "conversas": self.chat.resumo(),
                 "uso": {"usd": self.uso_hoje.get("usd"), "tokens": self.uso_hoje.get("tokens")} if self.uso_hoje else None,
             }

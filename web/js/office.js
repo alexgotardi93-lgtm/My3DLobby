@@ -172,10 +172,12 @@ export function buildOffice(scene, agentCount) {
     desks.push({ x, z, sit: new THREE.Vector3(x, 0, z + 1.05), approach: new THREE.Vector3(x, 0, z + 2.3), face: Math.PI, seatY: 0.6, monitor: monitors[i] });
   }
 
-  // ---- whiteboard + filing cabinet on the left wall
-  box(3.6, 2.2, 0.08, '#ffffff', -12.8, 2.3, -3); box(3.8, 2.4, 0.06, '#aab0bd', -12.84, 2.3, -3);
-  for (const [dy, w] of [[0.5, 2.2], [0.1, 2.8], [-0.3, 1.6], [-0.7, 2.5]]) box(w, 0.06, 0.02, dy > 0 ? '#2b3a67' : '#e65c5c', -12.74, 2.3 + dy, -3);
-  box(0.9, 1.3, 0.5, '#8a8f9c', -12.5, 0.65, -0.3); for (const y of [0.35, 0.75, 1.1]) box(0.3, 0.04, 0.04, '#2a2e38', -12.22, y, -0.3);
+  // ---- whiteboard + filing cabinet on the left wall. The left wall's inner face is at x = -12.85, so anything
+  // hung on it is thin along X and wide along Z (the back wall is the other way round). The marker lines start
+  // at the board's left edge as seen from the room (+z) and run toward -z.
+  box(0.08, 2.2, 3.6, '#ffffff', -12.8, 2.3, -3); box(0.06, 2.4, 3.8, '#aab0bd', -12.84, 2.3, -3);
+  for (const [dy, w] of [[0.5, 2.2], [0.1, 2.8], [-0.3, 1.6], [-0.7, 2.5]]) box(0.02, 0.06, w, dy > 0 ? '#2b3a67' : '#e65c5c', -12.74, 2.3 + dy, -1.5 - w / 2);
+  box(0.9, 1.3, 0.5, '#8a8f9c', -12.5, 0.65, -0.3); for (const y of [0.35, 0.75, 1.1]) box(0.04, 0.04, 0.3, '#2a2e38', -12.03, y, -0.3);
 
   // ---- COPA (kitchenette) in the back-right corner
   box(0.15, 1.1, 1.8, '#dfe3ea', 8.35, 0.55, -9.1); box(0.2, 0.06, 1.9, '#d9c7a6', 8.35, 1.13, -9.1);  // half wall

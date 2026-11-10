@@ -8,9 +8,11 @@ Agora (one per agent) - a read-only look at the agent's Hermes session store:
   Only tool *calls* are shown, never tool *results* (outputs), and every text goes through
   `redigir()`, which masks tokens, keys, passwords and long secret-looking strings.
 
-Cadeia - the headers of <lobby>/arquiteto/planos/PLANO-*.md and arquiteto/demandas/*.md
-  (status, titulo, pr, ciclos, em-execucao-desde, revisando-desde, depende-de). Each status
-  change becomes an event, kept in ~/.my3dlobby/cadeia-eventos.jsonl.
+Cadeia - the headers of <lobby>/arquiteto/planos/PLANO-*.md, demandas/*.md, entrada/*/item.md and
+  retornos/*.md (status, titulo, pr, ciclos, em-execucao-desde, revisando-desde, depende-de, aprovado, ...).
+  Each status change becomes an event, kept in ~/.my3dlobby/cadeia-eventos.jsonl. The board says, for every
+  item, who has it now (Alex, Arquiteto, Conferente, Dev, Reviewer, done or backlog), what that means and, for a
+  plan that cannot start, which plan it waits for.
 
 Nothing here writes to ~/.hermes or to the lobby folder.
 """
@@ -455,14 +457,51 @@ class AgoraReader:
 
 
 # ----------------------------------------------------------------------------- the chain
-FINAIS = {"concluido", "descartado", "backlog"}
+FINAIS = {"concluido", "descartado", "backlog", "avaliado"}
 DEMANDA_VIVA = {"novo", "em-avaliacao"}
-ORDEM = {"aprovado": 0, "aguardando-alex": 1, "em-execucao": 2, "devolvido": 3, "revisando": 4, "em-revisao": 5,
-         "pronto": 6, "escalar-arquiteto": 7, "rascunho": 8, "em-avaliacao": 9, "novo": 10, "concluido": 20}
-FASE = {"aprovado": "alex", "aguardando-alex": "alex", "em-execucao": "dev", "devolvido": "dev", "pronto": "fila",
+ORDEM = {"aprovado": 0, "aguardando-alex": 1, "aguardando-aprovacao": 1, "em-execucao": 2, "devolvido": 3, "revisando": 4,
+         "em-revisao": 5, "pronto": 6, "escalar-arquiteto": 7, "rascunho": 8, "em-avaliacao": 9, "novo": 10, "concluido": 20}
+FASE = {"aprovado": "alex", "aguardando-alex": "alex", "aguardando-aprovacao": "alex", "em-execucao": "dev", "devolvido": "dev", "pronto": "fila",
         "revisando": "reviewer", "em-revisao": "reviewer", "escalar-arquiteto": "arquiteto", "rascunho": "arquiteto",
         "em-avaliacao": "arquiteto", "novo": "arquiteto", "concluido": "fim"}
 CONCLUIDO_VISIVEL = 12 * 3600
+FIM_NO_QUADRO = 48 * 3600          # done plans stay on the board for two days
+ABERTO = {"novo", "em-triagem", "em-avaliacao", "aguardando-aprovacao"}
+SUFIXOS_RETORNO = ("-ciclos", "-desenho", "-execucao", "-volta")
+PRIORIDADE = {"alta": 0, "media": 1, "baixa": 2}
+FONTES = (("plano", "planos", "PLANO-*.md"), ("demanda", "demandas", "*.md"), ("retorno", "retornos", "*.md"),
+          ("item", "entrada", "*/item.md"))
+PLANO_DONO = {
+    "rascunho": ("arquiteto", "escrevendo"), "aguardando-alex": ("alex", "decidir"),
+    "aguardando-aprovacao": ("alex", "segurado"), "pronto": ("dev", "fila-dev"), "em-execucao": ("dev", "executando"),
+    "devolvido": ("dev", "devolvido"), "em-revisao": ("conferente", "pr-aberto"), "conferindo": ("conferente", "conferindo"),
+    "revisando": ("reviewer", "revisando"), "aprovado": ("alex", "merge"), "concluido": ("fim", "concluido"),
+    "backlog": ("backlog", "backlog"),
+}
+
+
+def _id_de_caminho(v: str) -> str:
+    nome = Path(str(v).split(" ")[0]).stem
+    return nome[6:] if nome.startswith("PLANO-") else nome
+
+
+def classificar(it: dict, trava: bool, com_retorno: set) -> tuple:
+    """(who has it, what that means) for one item; (None, status) when it is not on the board."""
+    tipo, st = it["tipo"], it["status"]
+    if tipo in ("item", "demanda"):
+        if st == "novo":
+            return ("alex", "aprovar") if trava and not it.get("aprovado") else ("arquiteto", "fila-arquiteto")
+        return {"em-triagem": ("conferente", "triagem"), "em-avaliacao": ("arquiteto", "avaliando"),
+                "aguardando-aprovacao": ("alex", "aprovar"), "backlog": ("backlog", "backlog")}.get(st, (None, st))
+    if tipo == "retorno":
+        if st == "novo":
+            return ("alex", "aprovar-volta") if trava and not it.get("aprovado") else ("arquiteto", "corrigir")
+        return {"em-avaliacao": ("arquiteto", "corrigindo"), "aguardando-aprovacao": ("alex", "aprovar-volta")}.get(st, (None, st))
+    if st == "escalar-arquiteto":
+        return ("arquiteto", "voltou-corrigir") if it["id"] in com_retorno else ("alex", "voltou-parado")
+    if st == "em-revisao" and str(it.get("conferencia", "")).startswith("ok"):
+        return ("reviewer", "fila-reviewer")
+    return PLANO_DONO.get(st, (None, st))
 
 
 def cabecalho(f: Path) -> dict:
@@ -526,7 +565,8 @@ class CadeiaReader:
     def _ler(self) -> dict:
         atuais: dict[str, dict] = {}
         vistos = set()
-        for tipo, pasta, padrao in (("plano", self.planos, "PLANO-*.md"), ("demanda", self.demandas, "*.md")):
+        for tipo, sub, padrao in FONTES:
+            pasta = self.lobby / "arquiteto" / sub
             if not pasta.is_dir():
                 continue
             for f in pasta.glob(padrao):
@@ -548,14 +588,23 @@ class CadeiaReader:
                 st = d.get("status", "").strip().lower()
                 if not st:
                     continue
-                ident = d.get("id") or (f.stem[6:] if f.stem.startswith("PLANO-") else f.stem)
+                if tipo == "item":
+                    ident = d.get("id") or f.parent.name
+                else:
+                    ident = d.get("id") or (f.stem[6:] if f.stem.startswith("PLANO-") else f.stem)
                 desde = _quando(d.get("revisando-desde", "")) if st == "revisando" else \
-                    _quando(d.get("em-execucao-desde", "")) if st == "em-execucao" else ""
+                    _quando(d.get("em-execucao-desde", "")) if st == "em-execucao" else \
+                    _quando(d.get("em-avaliacao-desde", "")) if st == "em-avaliacao" else ""
+                refs = [_id_de_caminho(d[k]) for k in ("plano", "plano-anterior") if d.get(k)]
                 atuais[f"{tipo}:{ident}"] = {
-                    "tipo": tipo, "id": ident, "titulo": curto(d.get("titulo") or ident, 90), "status": st,
-                    "pr": d.get("pr", "").lstrip("#").strip(), "ciclos": d.get("ciclos", "").strip(),
+                    "tipo": tipo, "id": ident, "titulo": curto(redigir(d.get("titulo") or ident), 110), "status": st,
+                    "pr": d.get("pr", "").lstrip("#").strip().split(" ")[0], "ciclos": d.get("ciclos", "").strip(),
                     "depende": d.get("depende-de", "").strip(), "desde": desde or _iso(mt), "mtime": mt,
-                    "arquivo": f.name,
+                    "arquivo": f.relative_to(self.lobby).as_posix() if tipo == "item" else f.name,
+                    "origem": curto(redigir(d.get("origem") or d.get("quem") or d.get("de", "")), 120),
+                    "aprovado": bool(d.get("aprovado")), "conferencia": d.get("conferencia", "")[:40],
+                    "prioridade": d.get("prioridade", "media").strip() or "media", "refs": refs,
+                    "criado": d.get("criado") or d.get("quando", ""),
                 }
         for k in list(self.cache):
             if k not in vistos:
@@ -634,8 +683,51 @@ class CadeiaReader:
             if st == "pronto" and it["depende"] and por_id.get(it["depende"]) not in ("aprovado", "concluido"):
                 item["bloqueado"] = True
             quadro.append(item)
+        quadro = [q for q in quadro if q["tipo"] in ("plano", "demanda")]
+        for q in quadro:
+            q.pop("refs", None)
         quadro.sort(key=lambda x: (ORDEM.get(x["status"], 15), x["desde"]))
-        return {"quadro": quadro, "eventos": eventos, "ok": self.planos.is_dir(), "erro": self.erro}
+        trava = (self.lobby / "arquiteto" / ".trava-aprovacao").exists()
+        return {"quadro": quadro, "itens": self.itens_do_quadro(itens, trava, agora), "trava": trava,
+                "eventos": eventos, "ok": self.planos.is_dir(), "erro": self.erro}
+
+    @staticmethod
+    def itens_do_quadro(itens: list, trava: bool, agora: float) -> list:
+        """Every item that is somewhere in the chain, with who has it, what that means and what it waits for."""
+        com_retorno = set()
+        for it in itens:
+            if it["tipo"] == "retorno" and it["status"] in ABERTO:
+                com_retorno.update(it.get("refs") or [])
+                com_retorno.add(it["id"])
+                for suf in SUFIXOS_RETORNO:
+                    if suf in it["id"]:
+                        com_retorno.add(it["id"][:it["id"].rindex(suf)])
+        planos = {it["id"]: it for it in itens if it["tipo"] == "plano"}
+        out = []
+        for it in itens:
+            dono, etapa = classificar(it, trava, com_retorno)
+            if dono is None or (dono == "fim" and agora - it["mtime"] > FIM_NO_QUADRO):
+                continue
+            item = {k: v for k, v in it.items() if k not in ("refs",)}
+            item["dono"], item["etapa"] = dono, etapa
+            if it["tipo"] == "plano" and it["status"] in ("pronto", "devolvido") and it["depende"]:
+                dep = planos.get(it["depende"])
+                if not dep or dep["status"] not in ("aprovado", "concluido"):
+                    item["etapa"] = "bloqueado"
+                    if dep:
+                        d_dono, d_etapa = classificar(dep, trava, com_retorno)
+                        item["espera"] = {"id": dep["id"], "titulo": dep["titulo"], "status": dep["status"],
+                                          "dono": d_dono, "etapa": d_etapa}
+                    else:
+                        item["espera"] = {"id": it["depende"], "titulo": it["depende"], "status": "", "dono": None, "etapa": "sumiu"}
+            out.append(item)
+        fila = [i for i in out if i["dono"] == "dev" and i["etapa"] in ("fila-dev", "devolvido")]
+        fila.sort(key=lambda i: (PRIORIDADE.get(i["prioridade"], 1), i["mtime"]))
+        for n, i in enumerate(fila, 1):
+            i["posicao"] = n
+        for i in out:
+            i.pop("mtime", None)
+        return out
 
     def plano_de(self, status: str) -> Optional[dict]:
         with self.lock:

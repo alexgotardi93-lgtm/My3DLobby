@@ -7,7 +7,13 @@
   GET  /api/conversas/busca?q=  -> messages containing q, across all agents
   GET  /api/uso?periodo=hoje|7d|mes|30d -> tokens and US$ per agent, per day (or hour) and in total
   POST /api/andares          -> floors: {"acao": "criar"|"mover"|"editar"|"remover", ...} (local only)
+  GET  /api/aprovacao        -> the Fila do Arquiteto: what waits for Alex to decide whether it becomes a plan
+  GET  /api/aprovacao/detalhe?chave=  -> the whole text of one pending item
+  POST /api/aprovacao        -> {"chave", "acao": "a"|"r"|"b", "motivo"}: approve, refuse or backlog (local only)
   GET  /api/health           -> {"ok": true}
+
+POSTs are accepted only from the office computer (or the LAN with chat_lan = true), only as JSON and only
+from the lobby's own page (a page from another site cannot make the browser talk to the agents or decide).
 """
 from __future__ import annotations
 
@@ -16,6 +22,7 @@ import mimetypes
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from . import __version__
 from .config import REPO, Config
@@ -41,19 +48,29 @@ def make_handler(reader, cfg: Config):
         def _local(self) -> bool:
             return cfg.chat_lan or self.client_address[0] in ("127.0.0.1", "::1", "localhost")
 
+        def _mesma_origem(self) -> bool:
+            """A browser always sends Origin on a POST; it must be this server (the page the lobby served)."""
+            origem = self.headers.get("Origin")
+            if origem is None:
+                return True  # not a browser (curl, tests): the local-only rule still applies
+            return urlsplit(origem).netloc.lower() == str(self.headers.get("Host", "")).lower() != ""
+
         def do_POST(self):
             path = self.path.split("?", 1)[0]
-            if path not in ("/api/chat", "/api/andares"):
+            if path not in ("/api/chat", "/api/aprovacao", "/api/andares"):
                 self.send_error(404)
                 return
             if not self._local():
-                return self._json({"ok": False, "erro": "só pelo computador do escritório (ou chat_lan = true)"}, 403)
+                quem = {"/api/chat": "conversa", "/api/aprovacao": "aprovação"}.get(path, "andares")
+                return self._json({"ok": False, "erro": f"{quem} só pelo computador do escritório (ou chat_lan = true)"}, 403)
+            if not self._mesma_origem() or not self.headers.get("Content-Type", "").startswith("application/json"):
+                return self._json({"ok": False, "erro": "pedido recusado: só a página do próprio lobby pode enviar"}, 403)
             try:
                 n = int(self.headers.get("Content-Length", "0"))
-                data = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
+                data = json.loads(self.rfile.read(min(n, 200_000)).decode("utf-8") or "{}")
+                if not isinstance(data, dict):
+                    raise ValueError
             except (ValueError, OSError):
-                return self._json({"ok": False, "erro": "pedido inválido"}, 400)
-            if not isinstance(data, dict):
                 return self._json({"ok": False, "erro": "pedido inválido"}, 400)
             if path == "/api/andares":
                 try:
@@ -61,6 +78,9 @@ def make_handler(reader, cfg: Config):
                 except OSError as e:
                     res = {"ok": False, "erro": f"não consegui gravar os andares: {e}"}
                 return self._json(res, 200 if res.get("ok") else 400)
+            if path == "/api/aprovacao":
+                res = reader.aprovacao.decidir(str(data.get("chave", "")), str(data.get("acao", "")), str(data.get("motivo", "")))
+                return self._json(res, 200 if res.get("ok") else 409)
             agent = str(data.get("agent", "")).strip()
             if not agent or agent not in reader.agent_ids():
                 return self._json({"ok": False, "erro": "agente desconhecido"}, 400)
@@ -89,6 +109,15 @@ def make_handler(reader, cfg: Config):
                     return self._json(reader.uso_resumo(periodo))
                 except Exception as e:  # a locked or odd state.db must not take the page down
                     return self._json({"ok": False, "erro": f"uso: {e}"}, 500)
+            if path == "/api/aprovacao":
+                st = reader.aprovacao.vista()
+                st["allowed"] = self._local()
+                return self._json(st)
+            if path == "/api/aprovacao/detalhe":
+                from urllib.parse import parse_qs
+                chave = (parse_qs(query).get("chave") or [""])[0]
+                res = reader.aprovacao.detalhe(chave)
+                return self._json(res, 200 if res.get("ok") else 404)
             if path == "/api/health":
                 return self._json({"ok": True, "version": __version__, "office": cfg.office_name})
             if path == "/":

@@ -6,6 +6,8 @@ import { Character } from './characters.js';
 import { initialLang, setLang, lang, t } from './i18n.js';
 import { setupConversas, updateConversas, openConversas, conversasKey, markSeen, agoraLine, agoraBox, tickSince } from './conversas.js';
 import { setupUso, updateUsoPill, usoKey, openUso, refreshUso, fmtUsd, fmtTok } from './uso.js';
+import { setupAprovacao, updateAprovacao, openAprovacao, aprovacaoKey, filaResumo, refreshAprovacao } from './aprovacao.js';
+import { setupCadeia, updateCadeia, openCadeia, cadeiaKey, refreshCadeia } from './cadeia.js';
 
 const POLL_MS = 3000;
 const $ = (id) => document.getElementById(id);
@@ -149,11 +151,15 @@ function applyState(s) {
   for (const id of Object.keys(characters)) if (!seen.has(id)) { characters[id].dispose(); delete characters[id]; }
   if (selected) { const a = s.agents.find((x) => x.id === selected); if (!a || !onFloor(a)) select(null); }
   renderFloors();
+  updateAprovacao(s);
+  const fila = filaResumo();  // the Arquiteto carries a sign with what waits for Alex's approval
+  for (const [id, c] of Object.entries(characters)) c.setBadge(fila && fila.agente === id && fila.n > 0 ? fmt(t('ap_badge'), { n: fila.n }) : null);
   renderChips(s);
   renderFeed(s);
   if (selected) renderPanel(selected);
   updateConversas(s);
   updateUsoPill(s);
+  updateCadeia(s);
 }
 
 // ---------------------------------------------------------------- floors UI
@@ -341,6 +347,16 @@ function renderPanel(id) {
     const html = box.html + `<button class="a-open" data-agent="${esc(a.id)}">${esc(t('cv_open_chat'))}</button>`;
     if (ag.__html !== html) { ag.innerHTML = html; ag.__html = html; tickSince(ag); }
   }
+  const fila = filaResumo();
+  const pf = $('panel-fila');
+  const temFila = !!(fila && fila.agente === a.id);
+  pf.classList.toggle('hidden', !temFila);
+  if (temFila) {
+    const html = `<div class="pf-top"><b>${esc(t('ap_panel'))}</b><span class="pf-n${fila.n ? ' has' : ''}">${esc(fila.n ? fmt(t('ap_panel_n'), { n: fila.n }) : t('ap_panel_0'))}</span></div>`
+      + `<div class="pf-sub">${esc(fila.trava ? t('ap_trava_on') : t('ap_trava_off'))}</div>`
+      + `<button class="pf-open${fila.n ? ' primary' : ''}">${esc(t('ap_panel_abrir'))}</button>`;
+    if (pf.__html !== html) { pf.innerHTML = html; pf.__html = html; }
+  }
   $('panel-model').textContent = (a.model || '—') + (a.model && a.model_local ? ` (${t('cv_local')})` : '');
   $('panel-runs').textContent = a.runs_today;
   $('panel-msgs').textContent = a.messages_today;
@@ -457,7 +473,11 @@ canvas.addEventListener('pointerup', (e) => {
   if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) return;
   mouse.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   ray.setFromCamera(mouse, camera);
-  const hits = ray.intersectObjects(Object.values(characters).filter((c) => c.visible !== false).map((c) => c.model), true);
+  const visiveis = Object.values(characters).filter((c) => c.visible !== false);
+  const badges = visiveis.map((c) => c.badge).filter(Boolean);
+  const signHit = badges.length ? ray.intersectObjects(badges, false) : [];
+  if (signHit.length) { openAprovacao(); return; }
+  const hits = ray.intersectObjects(visiveis.map((c) => c.model), true);
   if (hits.length) {
     let o = hits[0].object; while (o && !o.userData.agentId) o = o.parent;
     if (o) select(o.userData.agentId === selected ? null : o.userData.agentId);
@@ -467,20 +487,25 @@ canvas.addEventListener('pointerup', (e) => {
 // ---------------------------------------------------------------- UI wiring
 $('panel-close').onclick = () => select(null);
 $('panel-agora').onclick = (e) => { const b = e.target.closest('.a-open'); if (b) openConversas(b.dataset.agent); };
-setupConversas({ onShow: (id) => select(id) });
+setupConversas({ onShow: (id) => select(id), onCadeia: () => openCadeia() });
 setupUso();
+setupAprovacao({ onDecidiu: () => poll(), onAbrirAgente: (id) => select(id) });
+setupCadeia({ onAbrirFila: () => openAprovacao(), onVerAgente: (id) => select(id) });
+$('panel-fila').onclick = (e) => { if (e.target.closest('.pf-open')) openAprovacao(); };
 $('btn-overview').onclick = goOverview;
 $('btn-follow').onclick = () => { if (!selected) return; follow = !follow; $('btn-follow').classList.toggle('active', follow); };
 $('feed-toggle').onclick = () => { const f = $('feed'); f.classList.toggle('collapsed'); $('feed-toggle').textContent = f.classList.contains('collapsed') ? '+' : '–'; };
-$('btn-lang').onclick = () => { setLang(lang === 'pt' ? 'en' : 'pt'); $('btn-lang').textContent = lang === 'pt' ? 'EN' : 'PT'; $('andares').__html = ''; if (lastState) applyState(lastState); renderConn(); refreshUso(); };
+$('btn-lang').onclick = () => { setLang(lang === 'pt' ? 'en' : 'pt'); $('btn-lang').textContent = lang === 'pt' ? 'EN' : 'PT'; $('andares').__html = ''; if (lastState) applyState(lastState); renderConn(); refreshUso(); refreshAprovacao(); refreshCadeia(); };
 $('btn-lang').textContent = lang === 'pt' ? 'EN' : 'PT';
 window.addEventListener('keydown', (e) => {
   if (floorModalOpen()) { if (e.key === 'Escape') closeFloorModal(); return; }
-  if (conversasKey(e) || usoKey(e)) return;
+  if (conversasKey(e) || usoKey(e) || aprovacaoKey(e) || cadeiaKey(e)) return;
   if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) { if (e.key === 'Escape') e.target.blur(); return; }
   if (e.key === 'Escape') select(null);
   if (e.key === 'c' || e.key === 'C') { e.preventDefault(); openConversas(selected); return; }
   if (e.key === 'u' || e.key === 'U') { e.preventDefault(); openUso(); return; }
+  if ((e.key === 'a' || e.key === 'A') && filaResumo()) { e.preventDefault(); openAprovacao(); return; }
+  if (e.key === 'q' || e.key === 'Q') { e.preventDefault(); openCadeia(); return; }
   if (e.key === 'f' || e.key === 'F') $('btn-follow').click();
   if (e.key === 'o' || e.key === 'O') goOverview();
   if (e.key === 'PageUp' || e.key === 'PageDown') {
@@ -532,6 +557,7 @@ function animate() {
 window.__setCam = (pos, tgt) => { follow = false; camGoal.active = false; camera.position.set(...pos); controls.target.set(...tgt); controls.update(); };
 
 // ---------------------------------------------------------------- utils
+function fmt(s, o) { return String(s).replace(/\{(\w+)\}/g, (_, k) => (o[k] ?? '')); }
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function hhmm(iso) { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? iso.slice(11, 16) : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }); }
 function fmtDate(iso) { if (!iso) return '—'; const d = new Date(iso); if (isNaN(d)) return iso; const today = new Date(); const same = d.toDateString() === today.toDateString(); return (same ? '' : d.toLocaleDateString([], { day: '2-digit', month: '2-digit' }) + ' ') + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }); }
