@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1 — 2026-11-10
+
+- **Fix: the whiteboard on the left wall stuck out through the wall.** It was built with its width along the room's X axis, as if it hung on the back wall, so it stood edge-on to the left wall with half of it outside the office (and the agent "thinking at the board" stood inside it). It now lies flat on the left wall, inside its frame, with the marker lines starting at its left edge; the filing cabinet's drawer handles sit on its front instead of poking into it.
+
 ## 0.4.0 — 2026-11-09
 
 - **Controle de uso — tokens and US$ per agent.** A new window (bottom bar button **Uso**, or `U`) with period presets (today, 7 days, this month, 30 days) and a US$ / tokens switch: a hero total with the 30-day pace, tiles for tokens (input / cache / output), sessions and model calls and who spent the most; ranked bars per agent in its own colour; a stacked chart per day (per hour for today) with a legend, hover and keyboard readouts; a per-agent table (models, sessions, input, cache read, cache write, output, tokens, cost, share). The colours are the agents' own, with the OKLCH lightness kept in the band that reads evenly on the dark surface, and the stacking order is chosen so touching segments stay apart for colour-blind readers too (checked with the dataviz palette validator).
