@@ -8,7 +8,7 @@ const SEEN_KEY = 'my3dlobby.vistos';
 const DEMAND_KEY = 'my3dlobby.demanda';
 const POLL_CHAT_MS = 2500;
 const FASE = {
-  aprovado: 'alex', 'aguardando-alex': 'alex', 'em-execucao': 'dev', devolvido: 'dev', pronto: 'fila', revisando: 'reviewer',
+  aprovado: 'alex', 'aguardando-alex': 'alex', 'aguardando-aprovacao': 'alex', 'em-execucao': 'dev', devolvido: 'dev', pronto: 'fila', revisando: 'reviewer',
   'em-revisao': 'reviewer', 'escalar-arquiteto': 'arquiteto', rascunho: 'arquiteto', 'em-avaliacao': 'arquiteto', novo: 'arquiteto',
   avaliado: 'arquiteto', concluido: 'fim', backlog: 'fim', descartado: 'fim',
 };
@@ -141,6 +141,21 @@ function boardText(it) {
   return fmt((t('cad') || {})[key] || it.status, { pr: it.pr ? '#' + it.pr : '', c: it.ciclos || '?' });
 }
 export function chainSummary(c) {
+  const itens = c && c.itens;
+  if (itens) {  // the board says who has each item
+    const voce = itens.filter((i) => i.dono === 'alex').length;
+    const exec = itens.find((i) => i.etapa === 'executando');
+    const rev = itens.find((i) => i.etapa === 'revisando');
+    const fila = itens.filter((i) => i.dono === 'dev' && (i.etapa === 'fila-dev' || i.etapa === 'devolvido')).length;
+    const parados = itens.filter((i) => i.etapa === 'bloqueado').length;
+    const parts = [];
+    if (voce) parts.push(fmt(t('cv_wait_you'), { n: voce }));
+    if (exec) parts.push(fmt(t('cv_pill_exec'), { t: short(exec.titulo, 38) }));
+    else if (rev) parts.push(fmt(t('cd_pill_rev'), { pr: rev.pr ? '#' + rev.pr : '' }));
+    if (fila) parts.push(fmt(t('cv_in_queue'), { n: fila }));
+    if (parados) parts.push(fmt(t('cd_pill_parados'), { n: parados }));
+    return { text: parts.join(' · ') || t('cv_chain_idle'), alex: voce > 0, live: !!(exec || rev) };
+  }
   const q = (c && c.quadro) || [];
   const alex = q.filter((i) => i.fase === 'alex');
   const exec = q.find((i) => i.status === 'em-execucao');
@@ -485,6 +500,7 @@ function showEmpty() {
   $('cv-chat').classList.add('hidden');
 }
 function openThread(id, index = null) {
+  if (id === 'cadeia' && opts.onCadeia) { closeConversas(); opts.onCadeia(); return; }  // the chain has its own board now
   if (id !== 'cadeia' && !agentById(id)) return;
   if (cur !== id) {
     cur = id; chat = null; renderedKey = ''; expanded = new Set(); pinPref = null;
@@ -554,7 +570,7 @@ function onSearch() {
 export function setupConversas(o = {}) {
   opts = { ...opts, ...o };
   $('btn-conversas').onclick = () => (isConversasOpen() ? closeConversas() : openConversas());
-  $('cadeia-pill').onclick = () => openConversas('cadeia');
+  $('cadeia-pill').onclick = () => (opts.onCadeia ? opts.onCadeia() : openConversas('cadeia'));
   $('cv-close').onclick = closeConversas;
   $('conversas').addEventListener('mousedown', (e) => { if (e.target.id === 'conversas') closeConversas(); });
   $('cv-q').addEventListener('input', onSearch);

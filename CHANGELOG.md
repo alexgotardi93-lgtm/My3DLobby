@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.3 — 2026-11-10
+
+- **Quadro da Cadeia — where everything is and who has it.** The chain pill in the bottom bar, key `Q` or **Cadeia** in Conversas open a board with one column per owner: **Você** (approve, decide, merge), **Arquiteto**, **Dev**, **Conferente + Reviewer** and **Concluído e backlog**. Columns and cards wear the owner agent's own colour. Each card says what is happening in plain words ("Dev executando", "1º na fila", "PR #484 aberto: CI e Conferente", "Reviewer aprovou: falta o seu merge"), since when, the PR and the cycle; a plan that cannot start says **which plan it waits for and who has that one**. Click a card for its timeline and a shortcut to the queue or the agent. On the right, the **Histórico** says who did what ("Você aprovou…", "Dev parou … e devolveu ao Arquiteto").
+- The chain reader now also reads `entrada/*/item.md` and `retornos/*.md`, and works out the owner with the same rules as the queue scripts (the approval lock, open returns, `depende-de`, the Dev's queue order by priority and age).
+- **Fila do Arquiteto in two parts:** **Pode virar plano?** (what arrived: approving lets the Arquiteto create the plan — button **Pode planejar**) and **Planos esperando você** (the plan already exists: **Sim, pode seguir**, **Liberar** or, for a plan the Dev sent back, **Corrigir (Arquiteto)**).
+- Events say who acted: an approval of yours is no longer told as "o Dev abriu o PR".
+
+## 0.4.2 — 2026-11-10
+
+- **Fila do Arquiteto — approve from the office.** A new window (bottom bar button **Aprovar** with a counter, key `A`, the amber sign over the Arquiteto, or **Abrir a fila** in his card) lists everything that reached the Arquiteto and waits for Alex's decision: WhatsApp items, Sentinela/Sentry reports, demands, plans sent back and plans that ask something. Each card has its origin, time, PR link, the Conferente's suggestion and summary, **Ver tudo** (the whole file, secrets masked) and **Aprovar** / **Recusar** (optional reason) / **Backlog**. The decided card shows the result for a moment and leaves; typing a reason survives the 3-second refresh.
+- **One source of truth.** `aprovacao.py` loads the chain's own `perfis/cadeia/fila_aprovacao.py` and uses its `pendentes()` and `decidir()`, so a click does exactly what `Aprovar fila do Arquiteto.command` does (status changes, the `aprovado:` line, `decisoes.md`). Only files in the queue can be read or decided; without the program the feature stays hidden. `GET/POST /api/aprovacao`, `GET /api/aprovacao/detalhe`.
+- **Demands written in the lobby are born approved** (`aprovado: … (Alex, pelo lobby)`), like the ones from `Nova demanda.command`: with the chain's approval lock on, the Arquiteto picks them up without a second click.
+- **Safer POSTs.** `/api/chat` and `/api/aprovacao` accept only JSON from the lobby's own page (Origin must match the Host): a page from another site can no longer make the browser talk to the agents or decide for you.
+- Chain board: `aguardando-aprovacao` (plan on hold for approval) counts as waiting for you.
+- **Reopening brings the new version.** When an older My3DLobby still holds the port (a window never quit, a run from the Terminal), the app now stops it — only Python processes running My3DLobby, and only when the version differs — and starts the new one, instead of silently opening the old office. Anything else on the port is left alone.
+- If the chain program is there but fails, the **Aprovar** button still shows and the window says what went wrong.
+- First tests on this line: `python3 -m unittest discover -s tests` (adapter, endpoints, born-approved demands, port takeover).
+
 ## 0.4.1 — 2026-11-10
 
 - **Fix: the whiteboard on the left wall stuck out through the wall.** It was built with its width along the room's X axis, as if it hung on the back wall, so it stood edge-on to the left wall with half of it outside the office (and the agent "thinking at the board" stood inside it). It now lies flat on the left wall, inside its frame, with the marker lines starting at its left edge; the filing cabinet's drawer handles sit on its front instead of poking into it.

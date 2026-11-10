@@ -60,8 +60,27 @@ export class Character {
     if (!text) return;
     this.bubble = makeTextSprite(text, { w: 900, h: 220, font: '600 58px Inter, Arial', tail: true });
     this.bubble.scale.set(3.0, 0.73, 1);
-    this.bubble.position.y = this.tagBase + 0.62;
+    this.bubble.position.y = this.tagBase + (this.badge ? 0.98 : 0.62);
     this.root.add(this.bubble);
+  }
+
+  // a small amber sign above the name ("3 p/ aprovar"): what waits for Alex in the Arquiteto's queue
+  setBadge(text) {
+    if ((text || null) === (this.badgeText || null)) return;
+    this.badgeText = text || null;
+    if (this.badge) { this.root.remove(this.badge); this.badge.material.map.dispose(); this.badge.material.dispose(); this.badge = null; }
+    if (text) {
+      this.badge = makeTextSprite(text, { w: 560, h: 128, font: '800 62px Inter, Arial', color: '#1b1f2a', bg: '#f2c14e', radius: 40 });
+      // keep the amber as amber: sRGB texture, no ACES tone mapping (both wash it out to cream)
+      this.badge.material.map.colorSpace = 'srgb';
+      this.badge.material.map.needsUpdate = true;
+      this.badge.material.toneMapped = false;
+      this.badge.scale.set(1.5, 0.34, 1);
+      this.badge.position.y = this.tagBase + 0.36;
+      this.badge.userData.badge = true;
+      this.root.add(this.badge);
+    }
+    if (this.bubble) this.bubble.position.y = this.tagBase + (this.badge ? 0.98 : 0.62);
   }
 
   // ------------------------------------------------------------ spots

@@ -162,8 +162,11 @@ class ChatHub:
         while path.exists():
             path = base / f"{now:%Y-%m-%d-%H%M}-{slug}-{n}.md"
             n += 1
+        # Alex writes it himself, so it is born approved: with the chain's approval lock on
+        # (arquiteto/.trava-aprovacao), only items carrying `aprovado:` reach the Arquiteto.
         body = "\n".join([
             "status: novo", f"id: D-{now:%Y%m%d-%H%M}-{slug}", f"titulo: {title}", "quem: Alex (pelo lobby)",
+            f"aprovado: {now:%d/%m/%Y %H:%M} (Alex, pelo lobby)",
             "prioridade: media", f"quando: {now:%d/%m/%Y %H:%M}", "", "## Pedido", "", text, ""])
         try:
             path.write_text(body, encoding="utf-8")
