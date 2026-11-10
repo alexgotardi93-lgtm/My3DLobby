@@ -35,6 +35,7 @@
   <div class="status-line"><span class="dot" id="panel-dot"></span><span id="panel-status"></span></div>
   <div class="activity" id="panel-activity"></div>
   <div class="agora hidden" id="panel-agora"></div>
+  <div class="pfila hidden" id="panel-fila"></div>
   <dl class="facts">
     <dt data-i18n="model">Modelo</dt><dd id="panel-model">—</dd>
     <dt data-i18n="runs_today">Execuções hoje</dt><dd id="panel-runs">0</dd>
@@ -74,6 +75,10 @@
   <button id="btn-conversas" class="cv-open" title="Conversas (C)">
     <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6c-.5.4-1.3.1-1.3-.6V16A2.5 2.5 0 0 1 4 13.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 8.5h8M8 11.5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
     <span data-i18n="conversas">Conversas</span><span id="cv-badge" class="cv-badge hidden">0</span>
+  </button>
+  <button id="btn-aprovar" class="cv-open ap-open hidden" data-i18n-title="ap_btn_title" title="Fila do Arquiteto (A)">
+    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m8 12.2 2.7 2.7L16.2 9.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span data-i18n="ap_btn">Aprovar</span><span id="ap-badge" class="ap-badge hidden">0</span>
   </button>
   <button id="cadeia-pill" class="cadeia-pill" title="Cadeia"><span class="pdot"></span><span id="cadeia-text">…</span></button>
   <button id="btn-uso" class="cv-open uso-open" data-i18n-title="uso_btn_title" title="Controle de uso (U)">
@@ -189,6 +194,32 @@
     </div>
   </div>
   <div id="uso-tip" class="uso-tip hidden" role="tooltip"></div>
+</div>
+
+<div id="aprovacao" class="ap hidden" role="dialog" aria-modal="true" aria-labelledby="ap-title">
+  <div class="ap-win">
+    <header class="ap-head">
+      <div class="ap-titles">
+        <b id="ap-title" data-i18n="ap_title">Fila do Arquiteto</b>
+        <small data-i18n="ap_sub">O que chegou e espera você decidir se vira plano</small>
+      </div>
+      <button id="ap-arch" class="cv-head-btn" data-i18n="cv_open_arch">Abrir o Arquiteto</button>
+      <button id="ap-close" class="cv-icon" data-i18n-title="cv_close" title="Fechar (Esc)">×</button>
+    </header>
+    <div class="ap-bar">
+      <span id="ap-trava" class="ap-trava"></span>
+      <span id="ap-count" class="ap-count"></span>
+    </div>
+    <div class="ap-scroll">
+      <div id="ap-msg" class="ap-msg hidden"></div>
+      <div id="ap-empty" class="ap-empty hidden">
+        <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m8 12.3 2.8 2.8L16.3 9.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <h3 data-i18n="ap_vazio">Nada esperando você</h3>
+        <p data-i18n="ap_vazio_sub">Quando chegar algo pelo WhatsApp, pela Sentinela, uma demanda ou um plano pedir a sua decisão, aparece aqui.</p>
+      </div>
+      <div id="ap-list" class="ap-list"></div>
+    </div>
+  </div>
 </div>
 
 <div id="loading"><div class="spinner"></div><div data-i18n="loading">Abrindo o escritório…</div></div>

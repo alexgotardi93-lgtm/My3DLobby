@@ -457,9 +457,9 @@ class AgoraReader:
 # ----------------------------------------------------------------------------- the chain
 FINAIS = {"concluido", "descartado", "backlog"}
 DEMANDA_VIVA = {"novo", "em-avaliacao"}
-ORDEM = {"aprovado": 0, "aguardando-alex": 1, "em-execucao": 2, "devolvido": 3, "revisando": 4, "em-revisao": 5,
-         "pronto": 6, "escalar-arquiteto": 7, "rascunho": 8, "em-avaliacao": 9, "novo": 10, "concluido": 20}
-FASE = {"aprovado": "alex", "aguardando-alex": "alex", "em-execucao": "dev", "devolvido": "dev", "pronto": "fila",
+ORDEM = {"aprovado": 0, "aguardando-alex": 1, "aguardando-aprovacao": 1, "em-execucao": 2, "devolvido": 3, "revisando": 4,
+         "em-revisao": 5, "pronto": 6, "escalar-arquiteto": 7, "rascunho": 8, "em-avaliacao": 9, "novo": 10, "concluido": 20}
+FASE = {"aprovado": "alex", "aguardando-alex": "alex", "aguardando-aprovacao": "alex", "em-execucao": "dev", "devolvido": "dev", "pronto": "fila",
         "revisando": "reviewer", "em-revisao": "reviewer", "escalar-arquiteto": "arquiteto", "rascunho": "arquiteto",
         "em-avaliacao": "arquiteto", "novo": "arquiteto", "concluido": "fim"}
 CONCLUIDO_VISIVEL = 12 * 3600

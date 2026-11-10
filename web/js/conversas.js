@@ -8,7 +8,7 @@ const SEEN_KEY = 'my3dlobby.vistos';
 const DEMAND_KEY = 'my3dlobby.demanda';
 const POLL_CHAT_MS = 2500;
 const FASE = {
-  aprovado: 'alex', 'aguardando-alex': 'alex', 'em-execucao': 'dev', devolvido: 'dev', pronto: 'fila', revisando: 'reviewer',
+  aprovado: 'alex', 'aguardando-alex': 'alex', 'aguardando-aprovacao': 'alex', 'em-execucao': 'dev', devolvido: 'dev', pronto: 'fila', revisando: 'reviewer',
   'em-revisao': 'reviewer', 'escalar-arquiteto': 'arquiteto', rascunho: 'arquiteto', 'em-avaliacao': 'arquiteto', novo: 'arquiteto',
   avaliado: 'arquiteto', concluido: 'fim', backlog: 'fim', descartado: 'fim',
 };

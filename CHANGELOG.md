@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.2 — 2026-11-10
+
+- **Fila do Arquiteto — approve from the office.** A new window (bottom bar button **Aprovar** with a counter, key `A`, the amber sign over the Arquiteto, or **Abrir a fila** in his card) lists everything that reached the Arquiteto and waits for Alex's decision: WhatsApp items, Sentinela/Sentry reports, demands, plans sent back and plans that ask something. Each card has its origin, time, PR link, the Conferente's suggestion and summary, **Ver tudo** (the whole file, secrets masked) and **Aprovar** / **Recusar** (optional reason) / **Backlog**. The decided card shows the result for a moment and leaves; typing a reason survives the 3-second refresh.
+- **One source of truth.** `aprovacao.py` loads the chain's own `perfis/cadeia/fila_aprovacao.py` and uses its `pendentes()` and `decidir()`, so a click does exactly what `Aprovar fila do Arquiteto.command` does (status changes, the `aprovado:` line, `decisoes.md`). Only files in the queue can be read or decided; without the program the feature stays hidden. `GET/POST /api/aprovacao`, `GET /api/aprovacao/detalhe`.
+- **Demands written in the lobby are born approved** (`aprovado: … (Alex, pelo lobby)`), like the ones from `Nova demanda.command`: with the chain's approval lock on, the Arquiteto picks them up without a second click.
+- **Safer POSTs.** `/api/chat` and `/api/aprovacao` accept only JSON from the lobby's own page (Origin must match the Host): a page from another site can no longer make the browser talk to the agents or decide for you.
+- Chain board: `aguardando-aprovacao` (plan on hold for approval) counts as waiting for you.
+- First tests on this line: `python3 -m unittest discover -s tests` (adapter, endpoints, born-approved demands).
+
 ## 0.4.1 — 2026-11-10
 
 - **Fix: the whiteboard on the left wall stuck out through the wall.** It was built with its width along the room's X axis, as if it hung on the back wall, so it stood edge-on to the left wall with half of it outside the office (and the agent "thinking at the board" stood inside it). It now lies flat on the left wall, inside its frame, with the marker lines starting at its left edge; the filing cabinet's drawer handles sit on its front instead of poking into it.
