@@ -7,6 +7,7 @@ these tests write a small stand-in with the same interface: pendentes() and deci
 module globals PROJETO and ARQ.
 """
 import json
+import os
 import sys
 import tempfile
 import threading
@@ -156,7 +157,9 @@ class AprovacaoReaderTest(unittest.TestCase):
         self.assertFalse(self.r.decidir("arquiteto/planos/PLANO-D-1-rpc.md", "a")["ok"])
 
     def test_programa_quebrado_nao_derruba(self):
-        (self.lobby.raiz / "perfis" / "cadeia" / "fila_aprovacao.py").write_text("def pendentes(:\n")
+        programa = self.lobby.raiz / "perfis" / "cadeia" / "fila_aprovacao.py"
+        programa.write_text("def pendentes(:\n")
+        os.utime(programa, (programa.stat().st_atime + 5, programa.stat().st_mtime + 5))
         self.r.atualizar(forcar=True)
         self.assertIn("SyntaxError", self.r.vista()["erro"])
 

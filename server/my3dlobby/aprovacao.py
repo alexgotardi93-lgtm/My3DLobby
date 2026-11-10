@@ -82,7 +82,7 @@ class AprovacaoReader:
         self.programa = self.lobby / PROGRAMA
         self.agente = agente
         self._mod = None
-        self._mod_mtime: Optional[float] = None
+        self._mod_assinatura: Optional[tuple] = None
         self.decisao = threading.Lock()   # one decision at a time
         self.lock = threading.Lock()      # the view
         self.itens: list = []
@@ -95,17 +95,18 @@ class AprovacaoReader:
     # ------------------------------------------------------------------ the chain program
     def _modulo(self):
         try:
-            mt = self.programa.stat().st_mtime
+            st = self.programa.stat()
         except OSError:
             self._mod = None
             return None
-        if self._mod is None or mt != self._mod_mtime:
+        assinatura = (st.st_mtime_ns, st.st_size)  # size too: a same-second rewrite still reloads
+        if self._mod is None or assinatura != self._mod_assinatura:
             spec = importlib.util.spec_from_file_location("bpg_fila_aprovacao", self.programa)
             mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)   # only definitions run: main() is behind __name__ == "__main__"
             mod.PROJETO = self.lobby       # the lobby from ~/.my3dlobby.toml wins over the program's default
             mod.ARQ = self.arq
-            self._mod, self._mod_mtime = mod, mt
+            self._mod, self._mod_assinatura = mod, assinatura
         return self._mod
 
     def _chave(self, p: dict) -> str:
