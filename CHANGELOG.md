@@ -7,7 +7,9 @@
 - **Demands written in the lobby are born approved** (`aprovado: … (Alex, pelo lobby)`), like the ones from `Nova demanda.command`: with the chain's approval lock on, the Arquiteto picks them up without a second click.
 - **Safer POSTs.** `/api/chat` and `/api/aprovacao` accept only JSON from the lobby's own page (Origin must match the Host): a page from another site can no longer make the browser talk to the agents or decide for you.
 - Chain board: `aguardando-aprovacao` (plan on hold for approval) counts as waiting for you.
-- First tests on this line: `python3 -m unittest discover -s tests` (adapter, endpoints, born-approved demands).
+- **Reopening brings the new version.** When an older My3DLobby still holds the port (a window never quit, a run from the Terminal), the app now stops it — only Python processes running My3DLobby, and only when the version differs — and starts the new one, instead of silently opening the old office. Anything else on the port is left alone.
+- If the chain program is there but fails, the **Aprovar** button still shows and the window says what went wrong.
+- First tests on this line: `python3 -m unittest discover -s tests` (adapter, endpoints, born-approved demands, port takeover).
 
 ## 0.4.1 — 2026-11-10
 

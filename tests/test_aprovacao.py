@@ -161,7 +161,9 @@ class AprovacaoReaderTest(unittest.TestCase):
         programa.write_text("def pendentes(:\n")
         os.utime(programa, (programa.stat().st_atime + 5, programa.stat().st_mtime + 5))
         self.r.atualizar(forcar=True)
-        self.assertIn("SyntaxError", self.r.vista()["erro"])
+        v = self.r.vista()
+        self.assertIn("SyntaxError", v["erro"])
+        self.assertTrue(v["disponivel"])  # the button stays visible and the window shows the error
 
     def test_origem(self):
         self.assertEqual(origem({"tipo": "item", "id": "SENTRY-1"}), "sentry")

@@ -134,6 +134,8 @@ class AprovacaoReader:
             trava = (self.arq / ".trava-aprovacao").exists()
         except Exception as e:  # a half-written file or a broken program must not take the office down
             with self.lock:
+                # the program is there, so the button stays visible and the window says what went wrong
+                self.disponivel = self.programa.is_file()
                 self.erro = f"{type(e).__name__}: {e}"
             return
         with self.lock:
