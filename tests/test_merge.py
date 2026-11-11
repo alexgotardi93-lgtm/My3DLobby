@@ -202,9 +202,25 @@ class MergeTest(unittest.TestCase):
         self.assertEqual((itens["D-runner"]["dono"], itens["D-runner"]["etapa"]), ("fim", "merge-feito"))  # merged on GitHub
         self.assertEqual((itens["D-sonda"]["dono"], itens["D-sonda"]["etapa"]), ("dev", "fila-dev"))  # its dependency entered
         self.assertEqual(itens["SENT-a2"]["dono"], "fim")
+        # what waits for Alex's turn carries the same buttons in its "Espera" box
+        escrever(self.planos / "PLANO-D-x.md", "status: pronto\nid: D-x\ntitulo: X\ndepende-de: D-juiz\n\nx\n")
+        escrever(self.planos / "PLANO-D-y.md", "status: pronto\nid: D-y\ntitulo: Y\ndepende-de: D-relatorio\n\nx\n")
+        c.atualizar()
+        itens = {i["id"]: i for i in c.vista(self.r.para_quadro())["itens"]}
+        self.assertEqual((itens["D-x"]["espera"]["etapa"], itens["D-x"]["espera"]["merge"]), ("merge", "arquiteto/planos/PLANO-D-juiz.md"))
+        self.assertEqual(itens["D-y"]["espera"]["chave"], "arquiteto/planos/PLANO-D-relatorio.md")
         # without the Fila (another office) the board keeps its own rules
         sem = {i["id"]: i for i in c.vista()["itens"]}
         self.assertEqual(sem["D-sonda"]["etapa"], "bloqueado")
+
+    def test_voltou_parado_que_a_fila_nao_lista_nao_fica_com_voce(self):
+        # the Fila sees an open retorno the board missed: the board must not say "only moves with your yes"
+        para = {"pendentes": {}, "merges": {}, "mergeados": []}
+        c = CadeiaReader(self.lobby, store=Path(self.tmp.name) / "store2")
+        c.atualizar()
+        itens = {i["id"]: i for i in c.vista(para)["itens"]}
+        self.assertEqual((itens["D-relatorio"]["dono"], itens["D-relatorio"]["etapa"]), ("arquiteto", "voltou-corrigir"))
+        self.assertNotIn("voltou-parado", [i["etapa"] for i in itens.values()])
 
 
 if __name__ == "__main__":

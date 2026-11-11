@@ -143,7 +143,9 @@ function cartao(it) {
   if (it.espera) {
     const e = it.espera;
     const quem = e.dono ? `<span class="cd-chip" style="--c:${corDono(e.dono)}">${esc(nomeDono(e.dono))} · ${esc(etapaTexto(e))}</span>` : `<span class="cd-chip">${esc(t('cd_sumiu'))}</span>`;
-    h += `<div class="cd-espera"><span class="cd-espera-l">${esc(t('cd_espera'))}</span> ${esc(e.titulo)} ${quem}</div>`;
+    // when what it waits for is with Alex, the same buttons as in "Você" (decide or merge it from here)
+    const aqui = e.chave || e.merge ? acoes({ chave: e.chave, merge: e.merge }) : '';
+    h += `<div class="cd-espera"><span class="cd-espera-l">${esc(t('cd_espera'))}</span> ${esc(e.titulo)} ${quem}${aqui}</div>`;
   }
   const meta = [`<span class="cd-tipo">${esc((t('cd_tipo') || {})[it.tipo] || it.tipo)}</span>`];
   if (it.desde) meta.push(`<span title="${esc(hhmm(it.desde))}">${esc(ha(it.desde))}</span>`);
@@ -176,6 +178,9 @@ function proximaRodada(it) {
 function acoes(it) {
   const chave = it.chave || it.merge;
   if (!chave) return '';
+  return `<div class="cd-alvo" data-alvo="${esc(chave)}">${acoesDe(it, chave)}</div>`;
+}
+function acoesDe(it, chave) {
   const st = estadoAcao(chave);
   if (st.feito) {
     return `<div class="cd-feito"><b>${esc((t('ap_feito') || {})[st.feito.acao] || '')}</b> <span>${esc(st.feito.texto)}</span></div>`;
@@ -318,8 +323,8 @@ export function setupCadeia({ onAbrirFila, onVerAgente } = {}) {
     if (e.target.closest('a')) return;
     const b = e.target.closest('button');
     if (b) {
-      const card = b.closest('article[data-k]');
-      const chave = card && (card.dataset.chave || card.dataset.merge);
+      const alvo = b.closest('[data-alvo]');
+      const chave = alvo && alvo.dataset.alvo;
       if (b.disabled) return;
       if (b.dataset.x === 'fila' && aoAbrirFila) { closeCadeia(); aoAbrirFila(); }
       else if (b.dataset.x === 'agente' && aoVerAgente) { closeCadeia(); aoVerAgente(b.dataset.a); }

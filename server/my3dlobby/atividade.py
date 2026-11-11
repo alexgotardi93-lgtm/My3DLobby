@@ -752,6 +752,8 @@ class CadeiaReader:
                 dono, etapa = "alex", "aprovar"   # in the Fila: Alex can decide it now
             elif fila is not None and etapa == "merge" and it["id"] not in merges:
                 dono, etapa = "backlog", "pr-fechado"  # closed on GitHub without a merge: nothing for Alex to do
+            elif fila is not None and etapa == "voltou-parado" and not chave:
+                dono, etapa = "arquiteto", "voltou-corrigir"  # not in the Fila: it has an open retorno there
             if dono is None or (dono == "fim" and agora - it["mtime"] > FIM_NO_QUADRO):
                 continue
             item = {k: v for k, v in it.items() if k not in ("refs",)}
@@ -776,8 +778,21 @@ class CadeiaReader:
                             d_dono, d_etapa = "fim", "merge-feito"
                         elif dep["id"] in retorno_do_plano:
                             d_dono, d_etapa = retorno_do_plano[dep["id"]]
+                        elif fila is not None and d_etapa == "voltou-parado" and not pend.get(f"plano:{dep['id']}"):
+                            d_dono, d_etapa = "arquiteto", "voltou-corrigir"
+                        acao = {}
+                        if d_dono == "alex":  # what it waits for is with Alex: the buttons go right here too
+                            if pend.get(f"plano:{dep['id']}"):
+                                acao = {"chave": pend[f"plano:{dep['id']}"]}
+                            elif dep["id"] in merges and d_etapa == "merge":
+                                acao = {"merge": merges[dep["id"]]}
+                            else:
+                                volta = next((c for k, c in pend.items() if k.startswith("retorno:")
+                                              and plano_do_retorno.get(k[8:]) == dep["id"]), None)
+                                if volta:
+                                    acao = {"chave": volta}
                         item["espera"] = {"id": dep["id"], "titulo": dep["titulo"], "status": dep["status"],
-                                          "dono": d_dono, "etapa": d_etapa}
+                                          "dono": d_dono, "etapa": d_etapa, **acao}
                     else:
                         item["espera"] = {"id": it["depende"], "titulo": it["depende"], "status": "", "dono": None, "etapa": "sumiu"}
             out.append(item)

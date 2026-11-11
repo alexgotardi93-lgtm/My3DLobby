@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.7 — 2026-11-11
+
+- **"Espera: … Você" now comes with the buttons.** When a stopped card waits for a plan that is with you (to decide, to approve its return, or to merge), the "Espera" box carries the same buttons as the **Você** column, so the "yes" is right where the card asks for it.
+- The board never says "voltou e parou: só anda com o seu sim" for a plan the Fila does not list: that plan has a return open with the Arquiteto, and the board says so (on its own card and in the "Espera" box of what waits for it).
+
 ## 0.4.6 — 2026-11-11
 
 - **Cadeia: one card per job.** A plan that came back (`escalar-arquiteto`) with an open retorno is shown only by the retorno card (the Arquiteto's work, or your approval), not twice; the retorno card carries the plan's PR. What waits for that plan says the retorno's state.
