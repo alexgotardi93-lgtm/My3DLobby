@@ -601,6 +601,9 @@ class CadeiaReader:
                     _quando(d.get("em-execucao-desde", "")) if st == "em-execucao" else \
                     _quando(d.get("em-avaliacao-desde", "")) if st == "em-avaliacao" else ""
                 refs = [_id_de_caminho(d[k]) for k in ("plano", "plano-anterior") if d.get(k)]
+                anterior = atuais.get(f"{tipo}:{ident}")
+                if anterior and anterior["status"] not in FINAIS and st in FINAIS:
+                    continue  # two files with the same id (a plan's old and new retorno): the open one counts
                 atuais[f"{tipo}:{ident}"] = {
                     "tipo": tipo, "id": ident, "titulo": curto(redigir(d.get("titulo") or ident), 110), "status": st,
                     "pr": d.get("pr", "").lstrip("#").strip().split(" ")[0], "ciclos": d.get("ciclos", "").strip(),
@@ -720,9 +723,28 @@ class CadeiaReader:
                     if suf in it["id"]:
                         com_retorno.add(it["id"][:it["id"].rindex(suf)])
         planos = {it["id"]: it for it in itens if it["tipo"] == "plano"}
+        # one card per job: a plan that came back is shown by its open retorno (the Arquiteto's or Alex's turn),
+        # not by the plan card as well; what waits for that plan shows the retorno's state
+        retorno_do_plano, plano_do_retorno = {}, {}
+        for it in itens:
+            if it["tipo"] != "retorno" or it["status"] not in ABERTO:
+                continue
+            r = classificar(it, trava, com_retorno)
+            if r[0] is None:
+                continue
+            if pend.get(f"retorno:{it['id']}") and r[0] != "alex":
+                r = ("alex", "aprovar-volta")
+            alvos = set(it.get("refs") or []) | {it["id"]}
+            alvos |= {it["id"][:it["id"].rindex(suf)] for suf in SUFIXOS_RETORNO if suf in it["id"]}
+            for a in alvos:
+                if a in planos and planos[a]["status"] == "escalar-arquiteto":
+                    retorno_do_plano[a] = r
+                    plano_do_retorno.setdefault(it["id"], a)
         out = []
         for it in itens:
             dono, etapa = classificar(it, trava, com_retorno)
+            if it["tipo"] == "plano" and etapa == "voltou-corrigir" and it["id"] in retorno_do_plano:
+                continue
             chave = pend.get(f"{it['tipo']}:{it['id']}")
             if it["tipo"] == "plano" and it["status"] == "aprovado" and it.get("pr") and it["pr"] in mergeados:
                 dono, etapa = "fim", "merge-feito"
@@ -734,6 +756,11 @@ class CadeiaReader:
                 continue
             item = {k: v for k, v in it.items() if k not in ("refs",)}
             item["dono"], item["etapa"] = dono, etapa
+            alvo = plano_do_retorno.get(it["id"]) if it["tipo"] == "retorno" and it["status"] in ABERTO else None
+            if alvo:
+                item["plano"] = alvo
+                if not item.get("pr"):
+                    item["pr"] = planos[alvo].get("pr", "")
             if chave:
                 item["chave"] = chave
             elif etapa == "merge" and it["id"] in merges:
@@ -747,6 +774,8 @@ class CadeiaReader:
                         d_dono, d_etapa = classificar(dep, trava, com_retorno)
                         if dep["status"] == "aprovado" and dep.get("pr") in mergeados:
                             d_dono, d_etapa = "fim", "merge-feito"
+                        elif dep["id"] in retorno_do_plano:
+                            d_dono, d_etapa = retorno_do_plano[dep["id"]]
                         item["espera"] = {"id": dep["id"], "titulo": dep["titulo"], "status": dep["status"],
                                           "dono": d_dono, "etapa": d_etapa}
                     else:

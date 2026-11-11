@@ -569,6 +569,7 @@ a.ap-b:hover, a.cd-b:hover { background: rgba(255,255,255,0.14); }
 .cd-dep b { color: var(--muted); font-weight: 600; }
 .cd-aviso { margin-top: 6px; font-size: 11px; color: #9fd0ff; }
 .cd-feito { margin-top: 8px; font-size: 11.5px; color: #6fe3a5; }
+.cd-vez { color: #9fd0ff; }
 .cd-feito span { color: var(--muted); }
 .cd-erro { margin-top: 6px; color: var(--error); font-size: 11.5px; }
 .cd-hist { flex: 0 0 290px; width: 290px; border-left: 1px solid var(--cd-line); overflow-y: auto; padding: 12px 14px; }

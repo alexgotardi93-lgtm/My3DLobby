@@ -149,10 +149,27 @@ function cartao(it) {
   if (it.desde) meta.push(`<span title="${esc(hhmm(it.desde))}">${esc(ha(it.desde))}</span>`);
   if (it.pr) meta.push(prLink(it.pr));
   if (+it.ciclos > 0) meta.push(esc(fmt(t('cd_ciclo'), { c: it.ciclos })));
+  const vez = proximaRodada(it);
+  if (vez) meta.push(`<span class="cd-vez">${esc(fmt(t('cd_comeca'), { h: vez }))}</span>`);
   h += `<div class="cd-meta">${meta.join('<i>·</i>')}</div>`;
   h += acoes(it);
   if (aberto) h += detalhe(it);
   return h + '</article>';
+}
+
+// The Arquiteto's and the Dev's queues run every 10 minutes (Hermes cron "*/10 * * * *", see "Cadeia 24h.command"):
+// what is queued for them starts by the next round. Only for what really starts then (the Dev takes one plan).
+const QUEUE_MIN = 10;
+const NA_VEZ = new Set(['fila-arquiteto', 'corrigir']);
+const TRABALHANDO = { arquiteto: new Set(['avaliando', 'corrigindo', 'escrevendo']), dev: new Set(['executando']) };
+let ocupados = { arquiteto: false, dev: false };   // an agent already working finishes that first
+function proximaRodada(it) {
+  const vez = NA_VEZ.has(it.etapa) || ((it.etapa === 'fila-dev' || it.etapa === 'devolvido') && it.posicao === 1);
+  if (!vez || ocupados[it.dono]) return '';
+  const d = new Date();
+  d.setSeconds(0, 0);
+  d.setMinutes(Math.floor(d.getMinutes() / QUEUE_MIN) * QUEUE_MIN + QUEUE_MIN);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 /** Buttons right on the card for what waits for Alex (decide, back to the Dev, merge). */
@@ -225,6 +242,8 @@ function render() {
   if (!isCadeiaOpen()) return;
   const c = (S && S.cadeia) || {};
   const todos = itens();
+  const tudo = c.itens || [];   // not the search result: an agent working is busy whatever the search shows
+  for (const a of Object.keys(TRABALHANDO)) ocupados[a] = tudo.some((i) => i.dono === a && TRABALHANDO[a].has(i.etapa));
   const cols = $('cd-cols');
   const vazio = !(c.itens || []).length;
   $('cd-msg').classList.toggle('hidden', !vazio && c.ok !== false);

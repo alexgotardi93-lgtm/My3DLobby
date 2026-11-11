@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.6 — 2026-11-11
+
+- **Cadeia: one card per job.** A plan that came back (`escalar-arquiteto`) with an open retorno is shown only by the retorno card (the Arquiteto's work, or your approval), not twice; the retorno card carries the plan's PR. What waits for that plan says the retorno's state.
+- Fix: when an old and a new retorno of the same plan have the same `id`, the open one counts. Before, a plan the Reviewer sent back a second time could show as "voltou e parou, só anda com o seu sim" under **Você** while the Fila had nothing to decide.
+- Queued work says when it starts: the Arquiteto's and the Dev's queues run every 10 minutes, so a card waiting for them shows "começa até 11:40" (the Dev's first in the queue only; nothing while the agent is still busy).
+
 ## 0.4.5 — 2026-11-11
 
 - **One list of what waits for you, the same number everywhere.** The queue window is now **Esperando você**: what may become a plan, plans that ask for a decision or came back, and a new part, **PRs esperando seu merge** (plans the Reviewer approved). The **Aprovar** counter, the sign over the Arquiteto and the **Você** column of the Cadeia board count exactly the same things ("3 para decidir · 3 para merge").

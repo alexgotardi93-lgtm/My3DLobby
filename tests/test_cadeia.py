@@ -69,7 +69,6 @@ class QuadroTest(unittest.TestCase):
             "SENT-20261110-1940-diario": ("conferente", "triagem"),
             "D-rel": ("arquiteto", "avaliando"),
             "D-edge-volta-20261110-1250": ("arquiteto", "corrigir"),
-            "D-edge": ("arquiteto", "voltou-corrigir"),                # tem retorno aberto
             "D-runner": ("alex", "voltou-parado"),                     # ninguém pegou
             "D-juiz": ("dev", "bloqueado"),
             "D-funcoes": ("dev", "bloqueado"),
@@ -83,6 +82,26 @@ class QuadroTest(unittest.TestCase):
             "D-decidir": ("alex", "decidir"),
         }
         self.assertEqual({k: (v["dono"], v["etapa"]) for k, v in q.items()}, esperado)
+
+    def test_um_cartao_por_trabalho(self):
+        q = self.quadro()
+        self.assertNotIn("D-edge", q)   # the plan that came back is shown by its retorno, not twice
+        self.assertEqual((q["D-edge-volta-20261110-1250"]["plano"], q["D-edge-volta-20261110-1250"]["pr"]), ("D-edge", "480"))
+
+    def test_retorno_antigo_com_o_mesmo_id_nao_esconde_o_aberto(self):
+        a = self.lobby / "arquiteto"
+        escrever(a / "planos" / "PLANO-D-rpc.md", "status: escalar-arquiteto\nid: D-rpc\ntitulo: RPC\npr: 484\n\nx\n")
+        escrever(a / "retornos" / "D-rpc-desenho.md", "status: em-avaliacao\nid: D-rpc\nplano: planos/PLANO-D-rpc.md\n"
+                 "titulo: Bug de desenho\naprovado: 11/11/2026 11:21 (Alex)\n\nx\n")
+        escrever(a / "retornos" / "D-rpc-execucao.md", "status: avaliado\nid: D-rpc\nplano: planos/PLANO-D-rpc.md\n"
+                 "titulo: Execução\n\nx\n")
+        escrever(a / "planos" / "PLANO-D-sonda.md", "status: pronto\nid: D-sonda\ntitulo: Sonda\ndepende-de: D-rpc\n\nx\n")
+        self.r.atualizar()
+        itens = [i for i in self.r.vista()["itens"] if i["id"] in ("D-rpc", "D-sonda")]
+        self.assertEqual(sorted((i["tipo"], i["dono"], i["etapa"]) for i in itens),
+                         [("plano", "dev", "bloqueado"), ("retorno", "arquiteto", "corrigindo")])
+        sonda = next(i for i in itens if i["id"] == "D-sonda")
+        self.assertEqual((sonda["espera"]["dono"], sonda["espera"]["etapa"]), ("arquiteto", "corrigindo"))
 
     def test_parado_diz_o_que_espera_e_com_quem_esta(self):
         q = self.quadro()
