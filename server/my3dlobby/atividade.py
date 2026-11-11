@@ -712,7 +712,8 @@ class CadeiaReader:
             item["dono"], item["etapa"] = dono, etapa
             if it["tipo"] == "plano" and it["status"] in ("pronto", "devolvido") and it["depende"]:
                 dep = planos.get(it["depende"])
-                if not dep or dep["status"] not in ("aprovado", "concluido"):
+                # only merged code counts: the Dev's branch starts from origin/main (an approved PR is not there yet)
+                if not dep or dep["status"] != "concluido":
                     item["etapa"] = "bloqueado"
                     if dep:
                         d_dono, d_etapa = classificar(dep, trava, com_retorno)

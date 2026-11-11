@@ -90,6 +90,15 @@ class QuadroTest(unittest.TestCase):
         self.assertEqual((q["D-juiz"]["espera"]["dono"], q["D-juiz"]["espera"]["etapa"]), ("alex", "voltou-parado"))
         self.assertEqual(q["D-funcoes"]["espera"]["dono"], "arquiteto")
 
+    def test_dependencia_aprovada_sem_merge_ainda_segura(self):
+        a = self.lobby / "arquiteto" / "planos"
+        escrever(a / "PLANO-D-runner2.md", "status: aprovado\nid: D-runner2\ntitulo: Runner 2\npr: 494\n\nx\n")
+        escrever(a / "PLANO-D-juiz2.md", "status: pronto\nid: D-juiz2\ntitulo: Juiz 2\ndepende-de: D-runner2\n\nx\n")
+        self.r.atualizar()
+        q = self.quadro()
+        self.assertEqual(q["D-juiz2"]["etapa"], "bloqueado")
+        self.assertEqual((q["D-juiz2"]["espera"]["dono"], q["D-juiz2"]["espera"]["etapa"]), ("alex", "merge"))
+
     def test_fila_do_dev_na_ordem_da_fila(self):
         q = self.quadro()
         self.assertEqual([q[i]["posicao"] for i in ("D-a", "D-c", "D-b")], [1, 2, 3])  # prioridade, depois o mais antigo

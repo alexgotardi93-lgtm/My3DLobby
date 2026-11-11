@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.4 — 2026-11-11
+
+- Cadeia: a plan whose dependency was approved but not merged yet shows as **stuck, waiting for your merge** (with the PR), not "in the Dev's queue": the Dev's branch starts from `origin/main`, so an approved PR is not enough (the chain's Dev queue now waits for the merge too).
+
 ## 0.4.3 — 2026-11-10
 
 - **Quadro da Cadeia — where everything is and who has it.** The chain pill in the bottom bar, key `Q` or **Cadeia** in Conversas open a board with one column per owner: **Você** (approve, decide, merge), **Arquiteto**, **Dev**, **Conferente + Reviewer** and **Concluído e backlog**. Columns and cards wear the owner agent's own colour. Each card says what is happening in plain words ("Dev executando", "1º na fila", "PR #484 aberto: CI e Conferente", "Reviewer aprovou: falta o seu merge"), since when, the PR and the cycle; a plan that cannot start says **which plan it waits for and who has that one**. Click a card for its timeline and a shortcut to the queue or the agent. On the right, the **Histórico** says who did what ("Você aprovou…", "Dev parou … e devolveu ao Arquiteto").
