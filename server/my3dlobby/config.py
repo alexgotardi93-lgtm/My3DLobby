@@ -147,6 +147,7 @@ class Config:
     github_repo: str = ""  # "owner/repo" of the chain's PRs: the Cadeia board links "#471" to GitHub
     agents: list = field(default_factory=list)  # AgentConfig
     signals: list = field(default_factory=list)  # SignalConfig
+    floors: list = field(default_factory=list)  # [{"name": str, "profiles": [str]}] from [[floor]]
     source_path: str = ""
 
     @property
@@ -223,6 +224,11 @@ def _apply(cfg: Config, data: dict) -> None:
         )
         for a in data.get("agent", [])
         if a.get("profile")
+    ]
+    cfg.floors = [
+        {"name": str(f.get("name", "")), "profiles": [str(p) for p in (f.get("profiles", f.get("agents", [])) or [])]}
+        for f in data.get("floor", [])
+        if isinstance(f, dict) and f.get("name")
     ]
     cfg.signals = [
         SignalConfig(

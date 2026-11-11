@@ -33,6 +33,7 @@ export class Character {
     this.faceTarget = null;
     this.emoteTimer = rand(6, 14);
     this.moving = 0;
+    this.visible = true;
 
     this.root = new THREE.Group();
     this.human = new Humanoid(info.id, info.color);
@@ -94,6 +95,20 @@ export class Character {
 
   myDesk() { const d = this.office.spots.desks; return d[this.info.desk % d.length] || d[0]; }
 
+  // ------------------------------------------------------------ floors: only the people of the floor on screen are in the room
+  setVisible(v) {
+    v = !!v;
+    if (this.visible === v) return;
+    this.visible = v;
+    this.root.visible = v;
+    this.release();
+    this.goal = null; this.path = null; this.mode = 'act'; this.sitting = false;
+    if (!v) { this.setBubble(null); return; }
+    // coming into view: already where it would be (at the desk if working), not walking in from far away
+    this.plan();
+    if (this.goal && this.goal.target) { this.root.position.copy(this.goal.target); this.path = null; this.arrive(); }
+  }
+
   // ------------------------------------------------------------ server status
   setStatus(status, activity, info) {
     if (info) this.info = info;
@@ -138,7 +153,7 @@ export class Character {
         const nodes = Object.values(this.office.nodes);
         spot = { p: pick(nodes).p.clone().add(new THREE.Vector3(rand(-0.6, 0.6), 0, rand(-0.6, 0.6))), face: rand(0, Math.PI * 2) };
       } else if (kind === 'chat') {
-        const others = Object.values(window.__characters || {}).filter((c) => c !== this && c.status === 'idle' && c.mode === 'act' && !c.sitting);
+        const others = Object.values(window.__characters || {}).filter((c) => c !== this && c.visible !== false && c.status === 'idle' && c.mode === 'act' && !c.sitting);
         if (others.length) {
           const o = pick(others);
           const dir = new THREE.Vector3().subVectors(this.root.position, o.root.position).setY(0).normalize();
@@ -201,6 +216,7 @@ export class Character {
 
   // ------------------------------------------------------------ per frame
   update(dt, now) {
+    if (this.visible === false) return;  // another floor: not in this room
     if (!this.goal) this.plan();
     const g = this.goal;
     let speed = 0;

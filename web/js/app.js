@@ -64,11 +64,27 @@ let online = false;
 let knownFeed = new Set();
 const clock = new THREE.Clock();
 
+// ---------------------------------------------------------------- floors (andares): one room per floor
+let floors = [];
+let floorId = null;
+try { floorId = localStorage.getItem('my3dlobby.andar'); } catch (_) {}
+const tf = (k, n, nome) => String(t(k)).replace('{n}', n).replace('{nome}', nome ?? '');
+function floorsOf(s) {
+  if (s && s.andares && s.andares.length) return s.andares;
+  const ags = s ? s.agents : [];
+  return [{ id: '_', nome: s ? s.office.name : '', numero: 1, agentes: ags.map((a) => a.id), trabalhando: ags.filter((a) => a.status === 'working').length }];
+}
+function floorOfAgent(a) { return a.andar || (floors[0] && floors[0].id); }
+function currentFloor() { return floors.find((f) => f.id === floorId) || floors[0]; }
+function onFloor(a) { const f = currentFloor(); return !!f && floorOfAgent(a) === f.id; }
+function desksNeeded(s) { return Math.min(8, Math.max(2, ...floorsOf(s).map((f) => f.agentes.length))); }
+function rememberFloor() { try { localStorage.setItem('my3dlobby.andar', floorId); } catch (_) {} }
+
 // ---------------------------------------------------------------- boot
 async function boot() {
   setLang(initialLang());
   const first = await fetchState();
-  const n = first ? first.agents.length : 3;
+  const n = first ? desksNeeded(first) : 3;  // desks of the busiest floor
   office = buildOffice(scene, n);
   if (first) applyState(first);
   $('loading').classList.add('gone');
@@ -94,26 +110,47 @@ async function poll() {
   renderConn();
 }
 
+function setMonitor(m, st) {
+  const on = st === 'working';
+  m.mat.color.set(on ? '#5fb3ff' : (st === 'error' ? '#ff6b6b' : '#141821'));
+  m.mat.emissive.set(on ? '#4aa3ff' : (st === 'error' ? '#ff3b3b' : '#000000'));
+  m.mat.emissiveIntensity = on || st === 'error' ? 0.9 : 0;
+  m.light.intensity = on ? 6 : 0;
+}
+
 function applyState(s) {
   lastState = s;
   if (s.office && s.office.language && !localStorage.getItem('my3dlobby.lang') && s.office.language !== 'auto' && s.office.language !== lang) setLang(s.office.language);
-  $('office-name').textContent = s.office.name;
+  floors = floorsOf(s);
+  if (!floors.find((f) => f.id === floorId)) floorId = floors[0].id;
+  // a floor with more people than desks in the room: build the room again, once, with more desks
+  if (desksNeeded(s) > office.spots.desks.length && !window.__reloading) { window.__reloading = true; location.reload(); return; }
+  const fl = currentFloor();
+  const multi = floors.length > 1;
+  $('office-name').textContent = multi ? fl.nome : s.office.name;
+  office.setFloor(fl.numero, tf('floor_plate', fl.numero, fl.nome.toUpperCase()), multi);
   setNight(!s.office.open);
-  // characters
+  // characters: everyone exists, only the people of this floor are in the room
   const seen = new Set();
+  const desks = office.spots.desks;
+  const deskState = new Map();
   s.agents.forEach((a, i) => {
     seen.add(a.id);
     let c = characters[a.id];
     if (!c) { c = characters[a.id] = new Character({ ...a, desk: a.desk ?? i }, scene, office); }
     c.setStatus(a.status, agoraLine(a.agora) || a.activity, { ...a, desk: a.desk ?? i });  // bubble: the exact step when Hermes tells it
-    const m = office.spots.desks[(a.desk ?? i) % office.spots.desks.length].monitor;
-    const on = a.status === 'working';
-    m.mat.color.set(on ? '#5fb3ff' : (a.status === 'error' ? '#ff6b6b' : '#141821'));
-    m.mat.emissive.set(on ? '#4aa3ff' : (a.status === 'error' ? '#ff3b3b' : '#000000'));
-    m.mat.emissiveIntensity = on || a.status === 'error' ? 0.9 : 0;
-    m.light.intensity = on ? 6 : 0;
+    const here = onFloor(a);
+    c.setVisible(here);
+    if (here) {
+      const k = (a.desk ?? i) % desks.length;
+      const rank = { working: 2, error: 1 }[a.status] || 0;
+      if (!deskState.has(k) || rank > deskState.get(k).rank) deskState.set(k, { rank, st: a.status });
+    }
   });
+  desks.forEach((d, k) => setMonitor(d.monitor, (deskState.get(k) || {}).st));
   for (const id of Object.keys(characters)) if (!seen.has(id)) { characters[id].dispose(); delete characters[id]; }
+  if (selected) { const a = s.agents.find((x) => x.id === selected); if (!a || !onFloor(a)) select(null); }
+  renderFloors();
   updateAprovacao(s);
   const fila = filaResumo();  // the Arquiteto carries a sign with what waits for Alex's approval
   for (const [id, c] of Object.entries(characters)) c.setBadge(fila && fila.agente === id && fila.n > 0 ? fmt(t('ap_badge'), { n: fila.n }) : null);
@@ -124,6 +161,107 @@ function applyState(s) {
   updateUsoPill(s);
   updateCadeia(s);
 }
+
+// ---------------------------------------------------------------- floors UI
+function renderFloors() {
+  const nav = $('andares');
+  const cur = currentFloor();
+  const parts = [...floors].reverse().map((f) => `<button class="andar${f.id === cur.id ? ' on' : ''}" data-id="${esc(f.id)}" title="${esc(tf('floor_go', f.numero, f.nome))}">`
+    + `<span class="n">${esc(tf('floor_short', f.numero))}</span><span class="nm">${esc(f.nome)}</span>${f.trabalhando ? '<span class="dot working"></span>' : ''}</button>`);
+  parts.push(`<button class="andar edit" data-act="edit" title="${esc(t('floor_edit'))}">✎</button>`);
+  parts.push(`<button class="andar novo" data-act="novo">${esc(t('new_floor'))}</button>`);
+  const html = parts.join('');
+  if (nav.__html !== html) { nav.innerHTML = html; nav.__html = html; }
+}
+
+function goFloor(id, keepSelection) {
+  if (!floors.find((f) => f.id === id)) return;
+  if (id !== floorId) {
+    floorId = id;
+    rememberFloor();
+    if (!keepSelection) { select(null); goOverview(); }
+  }
+  if (lastState) applyState(lastState);
+}
+
+async function postFloors(body) {
+  try {
+    const r = await fetch('api/andares', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return await r.json().catch(() => ({ ok: false, erro: String(r.status) }));
+  } catch (e) { return { ok: false, erro: e.message }; }
+}
+
+let amFloor = null;      // null: new floor
+let amArmed = false;     // "remove" needs a second click
+function floorModalOpen() { return !$('am').classList.contains('hidden'); }
+function openFloorModal(id) {
+  amFloor = id; amArmed = false;
+  const f = id ? floors.find((x) => x.id === id) : null;
+  const first = !!f && f.id === floors[0].id;
+  $('am-title').textContent = t(f ? 'floor_edit_title' : 'floor_new_title');
+  $('am-ok').textContent = t(f ? 'floor_save' : 'floor_create');
+  $('am-nome').value = f ? f.nome : '';
+  $('am-remover').classList.toggle('hidden', !f || first);
+  $('am-remover').textContent = t('floor_remove');
+  $('am-note').textContent = first ? t('floor_first_note') : '';
+  const ul = $('am-agentes'); ul.innerHTML = '';
+  for (const a of (lastState ? lastState.agents : [])) {
+    const fa = floors.find((x) => x.id === floorOfAgent(a));
+    const here = !!f && !!fa && fa.id === f.id;
+    const lock = first && here;  // agents of floor 1 only leave it when put on another floor
+    const li = document.createElement('li');
+    li.innerHTML = `<label class="${lock ? 'lock' : ''}"><input type="checkbox" value="${esc(a.id)}"${here ? ' checked' : ''}${lock ? ' disabled' : ''}>`
+      + `<span class="swatch" style="background:${a.color}"></span><b>${esc(a.name)}</b><small>${fa && !here ? esc(tf('floor_now_on', fa.numero, fa.nome)) : ''}</small></label>`;
+    ul.appendChild(li);
+  }
+  $('am').classList.remove('hidden');
+  setTimeout(() => $('am-nome').focus(), 30);
+}
+function closeFloorModal() { $('am').classList.add('hidden'); }
+async function saveFloorModal() {
+  const nome = $('am-nome').value.trim();
+  if (!nome) { $('am-note').textContent = t('floor_need_name'); $('am-nome').focus(); return; }
+  const agentes = [...$('am-agentes').querySelectorAll('input:checked')].map((i) => i.value);
+  $('am-ok').disabled = true;
+  const res = await postFloors(amFloor ? { acao: 'editar', andar: amFloor, nome, agentes } : { acao: 'criar', nome, agentes });
+  $('am-ok').disabled = false;
+  if (!res.ok) { $('am-note').textContent = t('floor_err') + (res.erro || ''); return; }
+  closeFloorModal();
+  if (res.andar) { floorId = res.andar; rememberFloor(); select(null); goOverview(); }
+  await poll();
+}
+async function removeFloor() {
+  if (!amFloor) return;
+  if (!amArmed) { amArmed = true; $('am-remover').textContent = t('floor_remove_confirm'); return; }
+  const res = await postFloors({ acao: 'remover', andar: amFloor });
+  if (!res.ok) { $('am-note').textContent = t('floor_err') + (res.erro || ''); return; }
+  closeFloorModal();
+  floorId = res.andar || floors[0].id; rememberFloor(); select(null); goOverview();
+  await poll();
+}
+$('andares').onclick = (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.id) goFloor(b.dataset.id);
+  else if (b.dataset.act === 'novo') openFloorModal(null);
+  else if (b.dataset.act === 'edit') openFloorModal(currentFloor().id);
+};
+$('am-close').onclick = closeFloorModal;
+$('am-cancel').onclick = closeFloorModal;
+$('am-ok').onclick = saveFloorModal;
+$('am-remover').onclick = removeFloor;
+$('am').addEventListener('pointerdown', (e) => { if (e.target === $('am')) closeFloorModal(); });
+$('am-nome').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveFloorModal(); } });
+$('panel-andar').onchange = async (e) => {
+  const id = selected; const destino = e.target.value;
+  if (!id) return;
+  const res = await postFloors({ acao: 'mover', agente: id, andar: destino });
+  if (!res.ok) { $('panel-andar-note').textContent = t('floor_err') + (res.erro || ''); return; }
+  const f = floors.find((x) => x.id === destino);
+  $('panel-andar-note').textContent = f ? tf('floor_moved', f.numero, f.nome) : '';
+  floorId = destino; rememberFloor();   // follow the agent to its new floor
+  await poll();
+  select(id);
+};
 
 function setNight(night) {
   const k = night ? 0.25 : 1;
@@ -139,7 +277,14 @@ function statusLabel(st) { return t('status')[st] || st; }
 function renderChips(s) {
   const nav = $('chips');
   nav.innerHTML = '';
-  for (const a of s.agents) {
+  const here = s.agents.filter(onFloor);
+  if (!here.length) {
+    const el = document.createElement('div');
+    el.className = 'chip vazio';
+    el.textContent = t('floor_empty');
+    nav.appendChild(el);
+  }
+  for (const a of here) {
     const el = document.createElement('div');
     el.className = 'chip' + (selected === a.id ? ' selected' : '');
     el.innerHTML = `<span class="swatch" style="background:${a.color}"></span><span class="name">${esc(a.name)}</span><span class="st"><span class="dot ${a.status}"></span>${esc(statusLabel(a.status))}</span>`;
@@ -147,7 +292,8 @@ function renderChips(s) {
     nav.appendChild(el);
   }
   $('clock').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-  $('office-open').textContent = (s.office.open ? t('open') : t('closed')) + ' · ' + s.office.hours;
+  const fl = currentFloor();
+  $('office-open').textContent = (floors.length > 1 && fl ? tf('floor_n', fl.numero) + ' · ' : '') + (s.office.open ? t('open') : t('closed')) + ' · ' + s.office.hours;
 }
 
 function renderConn() {
@@ -166,7 +312,8 @@ function renderFeed(s) {
   const ul = $('feed-list');
   const colors = Object.fromEntries(s.agents.map((a) => [a.id, a.color]));
   const names = Object.fromEntries(s.agents.map((a) => [a.id, a.name]));
-  const items = s.feed.slice(0, 40);
+  const daqui = new Set(s.agents.filter(onFloor).map((a) => a.id));  // the feed of this floor
+  const items = s.feed.filter((f) => daqui.has(f.agent)).slice(0, 40);
   const nextKnown = new Set();
   ul.innerHTML = '';
   for (const f of items) {
@@ -215,6 +362,9 @@ function renderPanel(id) {
   $('panel-msgs').textContent = a.messages_today;
   $('panel-uso').textContent = a.uso_hoje ? `${fmtUsd(a.uso_hoje.usd)} · ${fmtTok(a.uso_hoje.tokens)} ${t('uso_tok')}` : '—';
   $('panel-last').textContent = a.last_activity ? fmtDate(a.last_activity) : t('never');
+  const sel = $('panel-andar');
+  const opts = floors.map((f) => `<option value="${esc(f.id)}"${f.id === floorOfAgent(a) ? ' selected' : ''}>${esc(tf('floor_short', f.numero) + ' · ' + f.nome)}</option>`).join('');
+  if (sel.__html !== opts || sel.__agent !== a.id) { sel.innerHTML = opts; sel.__html = opts; sel.__agent = a.id; $('panel-andar-note').textContent = ''; }
   const crons = $('panel-crons'); crons.innerHTML = '';
   if (!a.crons.length) crons.innerHTML = `<li><span class="t">${t('none')}</span></li>`;
   for (const c of a.crons) {
@@ -279,6 +429,10 @@ $('chat-send').onclick = sendChat;
 $('chat-text').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } });
 
 function select(id) {
+  if (id && lastState) {  // an agent on another floor: take the elevator first
+    const a = lastState.agents.find((x) => x.id === id);
+    if (a && !onFloor(a)) { floorId = floorOfAgent(a); rememberFloor(); applyState(lastState); }
+  }
   selected = id;
   chatSeen = -1;
   if (chatTimer) { clearInterval(chatTimer); chatTimer = null; }
@@ -319,10 +473,11 @@ canvas.addEventListener('pointerup', (e) => {
   if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) return;
   mouse.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   ray.setFromCamera(mouse, camera);
-  const badges = Object.values(characters).map((c) => c.badge).filter(Boolean);
+  const visiveis = Object.values(characters).filter((c) => c.visible !== false);
+  const badges = visiveis.map((c) => c.badge).filter(Boolean);
   const signHit = badges.length ? ray.intersectObjects(badges, false) : [];
   if (signHit.length) { openAprovacao(); return; }
-  const hits = ray.intersectObjects(Object.values(characters).map((c) => c.model), true);
+  const hits = ray.intersectObjects(visiveis.map((c) => c.model), true);
   if (hits.length) {
     let o = hits[0].object; while (o && !o.userData.agentId) o = o.parent;
     if (o) select(o.userData.agentId === selected ? null : o.userData.agentId);
@@ -340,9 +495,10 @@ $('panel-fila').onclick = (e) => { if (e.target.closest('.pf-open')) openAprovac
 $('btn-overview').onclick = goOverview;
 $('btn-follow').onclick = () => { if (!selected) return; follow = !follow; $('btn-follow').classList.toggle('active', follow); };
 $('feed-toggle').onclick = () => { const f = $('feed'); f.classList.toggle('collapsed'); $('feed-toggle').textContent = f.classList.contains('collapsed') ? '+' : '–'; };
-$('btn-lang').onclick = () => { setLang(lang === 'pt' ? 'en' : 'pt'); $('btn-lang').textContent = lang === 'pt' ? 'EN' : 'PT'; if (lastState) applyState(lastState); renderConn(); refreshUso(); refreshAprovacao(); refreshCadeia(); };
+$('btn-lang').onclick = () => { setLang(lang === 'pt' ? 'en' : 'pt'); $('btn-lang').textContent = lang === 'pt' ? 'EN' : 'PT'; $('andares').__html = ''; if (lastState) applyState(lastState); renderConn(); refreshUso(); refreshAprovacao(); refreshCadeia(); };
 $('btn-lang').textContent = lang === 'pt' ? 'EN' : 'PT';
 window.addEventListener('keydown', (e) => {
+  if (floorModalOpen()) { if (e.key === 'Escape') closeFloorModal(); return; }
   if (conversasKey(e) || usoKey(e) || aprovacaoKey(e) || cadeiaKey(e)) return;
   if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) { if (e.key === 'Escape') e.target.blur(); return; }
   if (e.key === 'Escape') select(null);
@@ -352,8 +508,16 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'q' || e.key === 'Q') { e.preventDefault(); openCadeia(); return; }
   if (e.key === 'f' || e.key === 'F') $('btn-follow').click();
   if (e.key === 'o' || e.key === 'O') goOverview();
+  if (e.key === 'PageUp' || e.key === 'PageDown') {
+    e.preventDefault();
+    const i = floors.findIndex((f) => f.id === (currentFloor() || {}).id);
+    const j = i + (e.key === 'PageUp' ? 1 : -1);
+    if (floors[j]) goFloor(floors[j].id);
+    return;
+  }
   const n = parseInt(e.key, 10);
-  if (n >= 1 && n <= 9 && lastState && lastState.agents[n - 1]) select(lastState.agents[n - 1].id);
+  const daqui = lastState ? lastState.agents.filter(onFloor) : [];
+  if (n >= 1 && n <= 9 && daqui[n - 1]) select(daqui[n - 1].id);
 });
 window.addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 // any user input stops an automatic camera move, so the view stays where the user left it

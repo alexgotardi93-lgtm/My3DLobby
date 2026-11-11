@@ -6,6 +6,7 @@
   POST /api/chat             -> {"agent", "text", "demanda"}: talk to an agent (local only)
   GET  /api/conversas/busca?q=  -> messages containing q, across all agents
   GET  /api/uso?periodo=hoje|7d|mes|30d -> tokens and US$ per agent, per day (or hour) and in total
+  POST /api/andares          -> floors: {"acao": "criar"|"mover"|"editar"|"remover", ...} (local only)
   GET  /api/aprovacao        -> the Fila do Arquiteto: what waits for Alex to decide whether it becomes a plan
   GET  /api/aprovacao/detalhe?chave=  -> the whole text of one pending item
   POST /api/aprovacao        -> {"chave", "acao": "a"|"r"|"b", "motivo"}: approve, refuse or backlog (local only)
@@ -56,11 +57,11 @@ def make_handler(reader, cfg: Config):
 
         def do_POST(self):
             path = self.path.split("?", 1)[0]
-            if path not in ("/api/chat", "/api/aprovacao"):
+            if path not in ("/api/chat", "/api/aprovacao", "/api/andares"):
                 self.send_error(404)
                 return
             if not self._local():
-                quem = "conversa" if path == "/api/chat" else "aprovação"
+                quem = {"/api/chat": "conversa", "/api/aprovacao": "aprovação"}.get(path, "andares")
                 return self._json({"ok": False, "erro": f"{quem} só pelo computador do escritório (ou chat_lan = true)"}, 403)
             if not self._mesma_origem() or not self.headers.get("Content-Type", "").startswith("application/json"):
                 return self._json({"ok": False, "erro": "pedido recusado: só a página do próprio lobby pode enviar"}, 403)
@@ -71,6 +72,12 @@ def make_handler(reader, cfg: Config):
                     raise ValueError
             except (ValueError, OSError):
                 return self._json({"ok": False, "erro": "pedido inválido"}, 400)
+            if path == "/api/andares":
+                try:
+                    res = reader.andares.executar(data, reader.agent_ids())
+                except OSError as e:
+                    res = {"ok": False, "erro": f"não consegui gravar os andares: {e}"}
+                return self._json(res, 200 if res.get("ok") else 400)
             if path == "/api/aprovacao":
                 res = reader.aprovacao.decidir(str(data.get("chave", "")), str(data.get("acao", "")), str(data.get("motivo", "")))
                 return self._json(res, 200 if res.get("ok") else 409)

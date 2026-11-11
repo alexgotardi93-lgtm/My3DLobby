@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 — 2026-11-10
+
+- **Andares (floors) — one room per team.** The office now has floors: each one is the same room with its own agents, its own colours (walls, rug) and a plate on the back wall ("2º ANDAR · MESA WIN"). Only the people of the floor on screen are in the room; the others keep working on their floor. Top bar: one button per floor (a dot when someone there is working), ✎ to rename the floor, change who is on it or remove it, and **+ Novo andar** (name + which agents move in). `PgUp`/`PgDn` change floors; `1`–`9`, the chips and the office feed follow the floor; picking an agent of another floor (Conversas → "Ver no escritório") takes the elevator. The agent card has a **Andar** selector to move that agent.
+- **Where floors come from:** `~/.my3dlobby/andares.json` (what you changed in the lobby; only My3DLobby writes it), else `[[floor]]` blocks (`name`, `profiles` with wildcards) in `~/.my3dlobby.toml`, else one floor named after the office plus a 2nd floor **Mesa WIN** for profiles `win-*` when they exist. Desks are numbered inside each floor, so the room only needs the desks of its busiest floor.
+- New `andares.py`, `POST /api/andares` (create / move / edit / remove; local only unless `chat_lan`); `/api/state` carries `andares` and each agent's `andar`.
+- Demo: a 2nd floor with the Mesa WIN agents (Pesquisador, Estrategista, Vigia, Revisor); demo floors live in a temp file, never in your real one.
+- Example config and `Atualizar configuracao (Mac).command`: the Mesa WIN agents with names, roles and colours.
+- First tests: `python3 -m unittest discover -s tests`.
+
 ## 0.4.3 — 2026-11-10
 
 - **Quadro da Cadeia — where everything is and who has it.** The chain pill in the bottom bar, key `Q` or **Cadeia** in Conversas open a board with one column per owner: **Você** (approve, decide, merge), **Arquiteto**, **Dev**, **Conferente + Reviewer** and **Concluído e backlog**. Columns and cards wear the owner agent's own colour. Each card says what is happening in plain words ("Dev executando", "1º na fila", "PR #484 aberto: CI e Conferente", "Reviewer aprovou: falta o seu merge"), since when, the PR and the cycle; a plan that cannot start says **which plan it waits for and who has that one**. Click a card for its timeline and a shortcut to the queue or the agent. On the right, the **Histórico** says who did what ("Você aprovou…", "Dev parou … e devolveu ao Arquiteto").
