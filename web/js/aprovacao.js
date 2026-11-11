@@ -136,9 +136,12 @@ export function botoesDecisao(it, cls) {
   let h = `<button class="${cls}" data-a="b"${dis}>${esc(t('ap_backlog'))}</button>`
     + `<button class="${cls} danger-outline" data-a="r"${dis}>${esc(t('ap_recusar'))}</button>`;
   if (voltou(it)) {
-    const devolverPrimeiro = !!it.depende;   // stopped on a dependency: trying again costs no Opus
-    h += `<button class="${cls}${devolverPrimeiro ? '' : ' primary'}" data-a="a"${dis}>${devolverPrimeiro ? '' : spin}${esc(t('ap_corrigir'))}</button>`
-      + `<button class="${cls}${devolverPrimeiro ? ' primary' : ''}" data-a="d"${dis}>${devolverPrimeiro ? spin : ''}${esc(t('ap_devolver'))}</button>`;
+    // stopped on a dependency: once it is on main, trying again costs no Opus; before the merge, neither button is
+    // the obvious one (merge first, the hint says so); with no dependency, the plan itself needs fixing
+    const dep = !!it.depende;
+    const corrigirP = !dep, devolverP = dep && !!it.dep_ok;
+    h += `<button class="${cls}${corrigirP ? ' primary' : ''}" data-a="a"${dis}>${corrigirP ? spin : ''}${esc(t('ap_corrigir'))}</button>`
+      + `<button class="${cls}${devolverP ? ' primary' : ''}" data-a="d"${dis}>${corrigirP ? '' : spin}${esc(t('ap_devolver'))}</button>`;
   } else {
     h += `<button class="${cls} primary" data-a="a"${dis}>${spin}${esc(rotuloAprovar(it))}</button>`;
   }
