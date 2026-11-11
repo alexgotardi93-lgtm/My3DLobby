@@ -105,7 +105,7 @@ class QuadroTest(unittest.TestCase):
         escrever(a / "PLANO-SENT-a2.md", "status: aprovado\nid: SENT-a2\ntipo: falso-positivo\ntitulo: Limiar\n\nx\n")
         self.r.atualizar()
         q = self.quadro()
-        self.assertEqual((q["D-infra"]["dono"], q["D-infra"]["etapa"]), ("alex", "decidir"))
+        self.assertEqual((q["D-infra"]["dono"], q["D-infra"]["etapa"]), ("backlog", "backlog"))  # nobody to do it but you, later
         self.assertNotIn("posicao", q["D-infra"])
         self.assertEqual((q["SENT-a2"]["dono"], q["SENT-a2"]["etapa"]), ("fim", "concluido"))
 

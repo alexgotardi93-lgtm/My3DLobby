@@ -311,7 +311,8 @@ class HermesReader:
         self.chat = ChatHub(cfg, self.hermes_bin)
         self.agora = AgoraReader(self.home)
         self.cadeia = CadeiaReader(Path(cfg.lobby_dir).expanduser())
-        self.aprovacao = AprovacaoReader(Path(cfg.lobby_dir).expanduser(), (cfg.demand_agents or ["arquiteto"])[0])
+        self.aprovacao = AprovacaoReader(Path(cfg.lobby_dir).expanduser(), (cfg.demand_agents or ["arquiteto"])[0],
+                                         cfg.github_repo)
         self.uso = UsoReader(self.home)
         self.uso_hoje: dict = {}
         self.last_uso = 0.0
@@ -546,8 +547,8 @@ class HermesReader:
 
     def snapshot(self) -> dict:
         when = now_local()
-        cadeia = self.cadeia.vista()
-        cadeia["github"] = self.cfg.github_repo
+        cadeia = self.cadeia.vista(self.aprovacao.para_quadro())  # "Você" on the board = the Fila (approvals + merges)
+        cadeia["github"] = self.cfg.github_repo or self.aprovacao.prs.slug()
         with self.lock:
             agents = []
             feed: list[Event] = []

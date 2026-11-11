@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.5 — 2026-11-11
+
+- **One list of what waits for you, the same number everywhere.** The queue window is now **Esperando você**: what may become a plan, plans that ask for a decision or came back, and a new part, **PRs esperando seu merge** (plans the Reviewer approved). The **Aprovar** counter, the sign over the Arquiteto and the **Você** column of the Cadeia board count exactly the same things ("3 para decidir · 3 para merge").
+- **The board operates.** Cards under **Você** carry the buttons: approve, refuse (asks to confirm), backlog, **Devolver ao Dev** and **Fazer merge**. They act through the same code as the queue window, so both always agree.
+- **Fazer merge**: merges the plan's PR into main with a merge commit (like GitHub's button), using the Mac's `gh` (the one the Dev already uses). Before merging it checks the PR is open, goes to main, comes from the plan's own branch and has no conflict, and it asks you to confirm. The merge is a line in `decisoes.md`; the plan file stays `aprovado` for the Entrega to mark `concluido` and follow the deploy. Without `gh`, the card links to the PR.
+- **Devolver ao Dev**: a plan the Dev stopped on goes back to his queue as it is, without the Arquiteto (no Opus). The card says what the plan waits for and whether it is on main already; when the Dev stopped only because the dependency had no merge, this is the main button.
+- The board checks the state of approved PRs on GitHub every 2 minutes: a PR merged on GitHub leaves **Você** and unblocks the plans that wait for it, even before the Entrega marks the plan `concluido`.
+- An approved plan with no PR (a Sentinela false positive, infra you do yourself) counts as finished; a plan with no steps for the Dev waiting as `pronto` goes to the backlog column.
+
 ## 0.4.4 — 2026-11-11
 
 - Cadeia: a plan whose dependency was approved but not merged yet shows as **stuck, waiting for your merge** (with the PR), not "in the Dev's queue": the Dev's branch starts from `origin/main`, so an approved PR is not enough (the chain's Dev queue now waits for the merge too).

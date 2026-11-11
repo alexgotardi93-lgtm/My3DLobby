@@ -6,9 +6,11 @@
   POST /api/chat             -> {"agent", "text", "demanda"}: talk to an agent (local only)
   GET  /api/conversas/busca?q=  -> messages containing q, across all agents
   GET  /api/uso?periodo=hoje|7d|mes|30d -> tokens and US$ per agent, per day (or hour) and in total
-  GET  /api/aprovacao        -> the Fila do Arquiteto: what waits for Alex to decide whether it becomes a plan
+  GET  /api/aprovacao        -> everything that waits for Alex: decisions of the Fila do Arquiteto and PRs the
+                                Reviewer approved, waiting for his merge
   GET  /api/aprovacao/detalhe?chave=  -> the whole text of one pending item
-  POST /api/aprovacao        -> {"chave", "acao": "a"|"r"|"b", "motivo"}: approve, refuse or backlog (local only)
+  POST /api/aprovacao        -> {"chave", "acao", "motivo"} (local only): a = approve, r = refuse, b = backlog,
+                                d = back to the Dev (a plan that stopped), m = merge the PR (merge commit into main)
   GET  /api/health           -> {"ok": true}
 
 POSTs are accepted only from the office computer (or the LAN with chat_lan = true), only as JSON and only

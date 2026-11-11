@@ -220,8 +220,8 @@
   <div class="ap-win">
     <header class="ap-head">
       <div class="ap-titles">
-        <b id="ap-title" data-i18n="ap_title">Fila do Arquiteto</b>
-        <small data-i18n="ap_sub">O que chegou e espera você decidir se vira plano</small>
+        <b id="ap-title" data-i18n="ap_title">Esperando você</b>
+        <small data-i18n="ap_sub">Decisões da cadeia e PRs esperando o seu merge</small>
       </div>
       <button id="ap-arch" class="cv-head-btn" data-i18n="cv_open_arch">Abrir o Arquiteto</button>
       <button id="ap-close" class="cv-icon" data-i18n-title="cv_close" title="Fechar (Esc)">×</button>
@@ -247,6 +247,11 @@
           <h4 data-i18n="ap_sec_planos">Planos esperando você</h4>
           <p data-i18n="ap_sec_planos_sub">O plano já existe. Aprovar = ele segue em frente.</p>
           <div id="ap-list-planos" class="ap-list"></div>
+        </section>
+        <section id="ap-sec-merge" class="ap-sec hidden">
+          <h4 data-i18n="ap_sec_merge">PRs esperando seu merge</h4>
+          <p data-i18n="ap_sec_merge_sub">O Reviewer aprovou. O merge leva o código para a main e o site para o ar.</p>
+          <div id="ap-list-merge" class="ap-list"></div>
         </section>
       </div>
     </div>

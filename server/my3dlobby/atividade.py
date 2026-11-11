@@ -498,10 +498,10 @@ def classificar(it: dict, trava: bool, com_retorno: set) -> tuple:
             return ("alex", "aprovar-volta") if trava and not it.get("aprovado") else ("arquiteto", "corrigir")
         return {"em-avaliacao": ("arquiteto", "corrigindo"), "aguardando-aprovacao": ("alex", "aprovar-volta")}.get(st, (None, st))
     classe = it.get("classe", "codigo")
-    if classe == "falso-positivo" and st == "aprovado":
-        return ("fim", "concluido")  # the Sentinela only watches it; nothing to merge
+    if st == "aprovado" and not it.get("pr"):
+        return ("fim", "concluido")  # nothing to merge (a Sentinela false positive, infra Alex does himself)
     if classe in ("infra", "falso-positivo", "backlog") and st in ("pronto", "devolvido"):
-        return ("alex", "decidir")  # the Dev queue skips these kinds (no steps for the Dev)
+        return ("backlog", "backlog")  # the Dev queue skips these kinds (no steps for the Dev)
     if st == "escalar-arquiteto":
         return ("arquiteto", "voltou-corrigir") if it["id"] in com_retorno else ("alex", "voltou-parado")
     if st == "em-revisao" and str(it.get("conferencia", "")).startswith("ok"):
@@ -668,7 +668,7 @@ class CadeiaReader:
         except OSError as e:
             self.erro = str(e)
 
-    def vista(self) -> dict:
+    def vista(self, fila: Optional[dict] = None) -> dict:
         agora = time.time()
         with self.lock:
             itens = list(self.itens.values())
@@ -694,12 +694,23 @@ class CadeiaReader:
             q.pop("refs", None)
         quadro.sort(key=lambda x: (ORDEM.get(x["status"], 15), x["desde"]))
         trava = (self.lobby / "arquiteto" / ".trava-aprovacao").exists()
-        return {"quadro": quadro, "itens": self.itens_do_quadro(itens, trava, agora), "trava": trava,
+        return {"quadro": quadro, "itens": self.itens_do_quadro(itens, trava, agora, fila), "trava": trava,
                 "eventos": eventos, "ok": self.planos.is_dir(), "erro": self.erro}
 
     @staticmethod
-    def itens_do_quadro(itens: list, trava: bool, agora: float) -> list:
-        """Every item that is somewhere in the chain, with who has it, what that means and what it waits for."""
+    def itens_do_quadro(itens: list, trava: bool, agora: float, fila: Optional[dict] = None) -> list:
+        """Every item that is somewhere in the chain, with who has it, what that means and what it waits for.
+
+        `fila` (AprovacaoReader.para_quadro) makes "Você" exactly the Fila: what waits for a decision gets its
+        `chave` (the buttons act on it), a PR waiting for the merge gets `merge`, and a PR already merged on
+        GitHub counts as done even before the Entrega marks the plan `concluido`."""
+        pend = (fila or {}).get("pendentes") or {}
+        merges = (fila or {}).get("merges") or {}
+        mergeados = set((fila or {}).get("mergeados") or ())
+
+        def entrou(dep: dict) -> bool:  # the dependency's code is on main
+            return dep["status"] == "concluido" or (dep["status"] == "aprovado" and dep.get("pr", "") in mergeados)
+
         com_retorno = set()
         for it in itens:
             if it["tipo"] == "retorno" and it["status"] in ABERTO:
@@ -712,17 +723,30 @@ class CadeiaReader:
         out = []
         for it in itens:
             dono, etapa = classificar(it, trava, com_retorno)
+            chave = pend.get(f"{it['tipo']}:{it['id']}")
+            if it["tipo"] == "plano" and it["status"] == "aprovado" and it.get("pr") and it["pr"] in mergeados:
+                dono, etapa = "fim", "merge-feito"
+            elif chave and dono != "alex":
+                dono, etapa = "alex", "aprovar"   # in the Fila: Alex can decide it now
+            elif fila is not None and etapa == "merge" and it["id"] not in merges:
+                dono, etapa = "backlog", "pr-fechado"  # closed on GitHub without a merge: nothing for Alex to do
             if dono is None or (dono == "fim" and agora - it["mtime"] > FIM_NO_QUADRO):
                 continue
             item = {k: v for k, v in it.items() if k not in ("refs",)}
             item["dono"], item["etapa"] = dono, etapa
+            if chave:
+                item["chave"] = chave
+            elif etapa == "merge" and it["id"] in merges:
+                item["merge"] = merges[it["id"]]
             if it["tipo"] == "plano" and it["status"] in ("pronto", "devolvido") and it["depende"]:
                 dep = planos.get(it["depende"])
                 # only merged code counts: the Dev's branch starts from origin/main (an approved PR is not there yet)
-                if not dep or dep["status"] != "concluido":
+                if not dep or not entrou(dep):
                     item["etapa"] = "bloqueado"
                     if dep:
                         d_dono, d_etapa = classificar(dep, trava, com_retorno)
+                        if dep["status"] == "aprovado" and dep.get("pr") in mergeados:
+                            d_dono, d_etapa = "fim", "merge-feito"
                         item["espera"] = {"id": dep["id"], "titulo": dep["titulo"], "status": dep["status"],
                                           "dono": d_dono, "etapa": d_etapa}
                     else:

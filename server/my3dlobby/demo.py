@@ -91,6 +91,13 @@ DEMO_QUADRO = [
     ("plano", "D-20261110-0130-seguranca-continua-ci-dependabot", "Dependabot semanal", "concluido", 150, {"pr": "481"}),
     ("plano", "D-20261110-0230-oportunidades-pncp-filtro-ia", "Filtro com IA nas oportunidades do PNCP", "backlog", 600, {}),
     ("demanda", "D-20261106-1006-limpeza-cesta-manual", "Limpeza da cesta manual antiga", "backlog", 2000, {}),
+    ("demanda", "D-20261110-0930-relatorio-semanal-por-municipio", "Relatório semanal de uso por município", "novo", 38,
+     {"origem": "Claude (pedido do Alex no chat)"}),
+    ("retorno", "D-20261110-0110-coletor-de-erros-sentry-edge", "Sentry nas funções: o Dev parou num passo impossível do plano",
+     "novo", 450, {"origem": "Dev"}),
+    ("plano", "D-20261110-0150-banco-de-avaliacao-da-ia-juiz", "Banco de avaliação da IA: o juiz", "aprovado", 40, {"pr": "499"}),
+    ("plano", "D-20261110-0150-banco-de-avaliacao-da-ia-relatorio", "Banco de avaliação da IA: o relatório", "escalar-arquiteto",
+     25, {"depende": "D-20261110-0150-banco-de-avaliacao-da-ia-juiz"}),
 ]
 
 DEMO_EVENTOS_2 = [
@@ -126,11 +133,21 @@ DEMO_FILA = [
      "quem": "demanda:2026-11-10-0235-saude-por-municipio.md", "sugestao": "",
      "resumo": "Perguntas para o Alex: 1. A data fica numa coluna nova, municipalities.contrato_vence_em? "
                "2. O admin preenche na tela de municípios? Com sim às duas, o plano segue para o Dev."},
-    {"tipo": "plano", "id": "D-20261110-0235-saude-por-municipio-rpc", "status": "aguardando-alex", "minutos": 460, "pr": "484",
-     "titulo": "Saúde por município: função só de leitura com os números da semana por prefeitura",
-     "quem": "demanda:2026-11-10-0235-saude-por-municipio.md", "sugestao": "",
-     "resumo": "A função lê usuários ativos, demandas e erros por município na semana. Precisa do seu sim porque "
-               "abre uma função nova para o papel admin."},
+    {"tipo": "plano", "id": "D-20261110-0150-banco-de-avaliacao-da-ia-relatorio", "status": "escalar-arquiteto", "minutos": 25,
+     "titulo": "Banco de avaliação da IA: o relatório", "quem": "demanda:2026-11-10-0150-banco-de-avaliacao-da-ia.md",
+     "sugestao": "", "depende": "D-20261110-0150-banco-de-avaliacao-da-ia-juiz", "dep_status": "aprovado", "dep_pr": "499",
+     "dep_titulo": "Banco de avaliação da IA: o juiz",
+     "resumo": "Rodada 01:50 (Dev): parei no passo 1. scripts/avaliacao-ia/juiz.ts não existe na origin/main: o plano -juiz "
+               "está aprovado, mas o PR #499 ainda não tem merge. Nada foi implementado."},
+]
+
+# fake PRs the Reviewer approved, waiting for Alex's merge
+DEMO_MERGES = [
+    {"id": "D-20261108-1502-cesta-manual-a", "titulo": "Remover a cesta manual (parte a)", "pr": "471", "minutos": 34,
+     "revisado": "10/11/2026 07:41 (Reviewer, commit 4be1c0d)", "conferencia": "ok 4be1c0d", "libera": []},
+    {"id": "D-20261110-0150-banco-de-avaliacao-da-ia-juiz", "titulo": "Banco de avaliação da IA: o juiz", "pr": "499",
+     "minutos": 40, "revisado": "11/11/2026 01:40 (Reviewer, commit 97b097a)", "conferencia": "ok 97b097a",
+     "libera": ["Banco de avaliação da IA: o relatório"]},
 ]
 
 
@@ -148,20 +165,40 @@ class DemoAprovacao:
         for it in DEMO_FILA:
             p = {**it, "quando": (t0 - timedelta(minutes=it["minutos"])).strftime("%d/%m/%Y %H:%M")}
             self.itens.append(montar_item(p, pasta[it["tipo"]].format(id=it["id"])))
+        self.merges = [{"chave": pasta["plano"].format(id=m["id"]), "tipo": "merge", "id": m["id"], "titulo": m["titulo"],
+                        "pr": m["pr"], "branch": "plano/" + m["id"], "revisado": m["revisado"], "conferencia": m["conferencia"],
+                        "quando_iso": (t0 - timedelta(minutes=m["minutos"])).isoformat(timespec="minutes"), "estado": "CLEAN",
+                        "url": "", "libera": list(m["libera"])} for m in DEMO_MERGES]
+        self.mergeados: set = set()
+        self.decididos: dict = {}   # (tipo, id) -> acao: the board moves the item like the real files would
+        self._dependencias()
+
+    def _dependencias(self) -> None:
+        for it in self.itens:
+            if it.get("depende"):
+                it["dep_ok"] = it.get("dep_pr", "") in self.mergeados
+
+    def para_quadro(self) -> dict:
+        with self.lock:
+            return {"pendentes": {f"{i['tipo']}:{i['id']}": i["chave"] for i in self.itens},
+                    "merges": {m["id"]: m["chave"] for m in self.merges}, "mergeados": sorted(self.mergeados)}
 
     def atualizar(self, forcar: bool = False) -> None:
         pass
 
     def vista(self) -> dict:
         with self.lock:
-            return {"disponivel": True, "trava": True, "n": len(self.itens), "itens": list(self.itens), "agente": "arquiteto",
-                    "erro": "", "atualizado": now_local().isoformat(timespec="seconds"), "programa": "perfis/cadeia/fila_aprovacao.py"}
+            return {"disponivel": True, "trava": True, "n": len(self.itens) + len(self.merges), "n_aprovar": len(self.itens),
+                    "n_merge": len(self.merges), "itens": [dict(i) for i in self.itens], "merges": [dict(m) for m in self.merges],
+                    "pode_merge": True, "agente": "arquiteto", "erro": "", "atualizado": now_local().isoformat(timespec="seconds"),
+                    "programa": "perfis/cadeia/fila_aprovacao.py"}
 
     def detalhe(self, chave: str) -> dict:
         with self.lock:
             it = next((i for i in self.itens if i["chave"] == chave), None)
         if not it:
             return {"ok": False, "erro": "este item não está mais na fila"}
+        it = {"quem": "", "quando": "", "resumo": "", **it}
         texto = "\n".join([f"status: {it['status']}", f"id: {it['id']}", f"titulo: {it['titulo']}", f"quem: {it['quem']}",
                            f"quando: {it['quando']}", "", "## Pedido", "", it["resumo"], "",
                            "## Contexto", "", "(demo) Aqui aparece o arquivo inteiro do item: a mensagem original, os anexos "
@@ -170,14 +207,26 @@ class DemoAprovacao:
 
     def decidir(self, chave: str, acao: str, motivo: str = "") -> dict:
         acao = str(acao or "").strip().lower()[:1]
-        if acao not in ("a", "r", "b"):
-            return {"ok": False, "erro": "ação inválida (a, r ou b)"}
+        if acao not in ("a", "r", "b", "d", "m"):
+            return {"ok": False, "erro": "ação inválida (a, r, b, d ou m)"}
         with self.lock:
+            if acao == "m":
+                m = next((x for x in self.merges if x["chave"] == chave), None)
+                if not m:
+                    return {"ok": False, "erro": "este PR não está mais esperando merge (já entrou ou o plano mudou)"}
+                self.merges.remove(m)
+                self.mergeados.add(m["pr"])
+                self._dependencias()
+                extra = f" · libera: {', '.join(m['libera'])}" if m["libera"] else ""
+                return {"ok": True, "acao": "m", "chave": chave, "feito": f"(demo) merge do PR {m['pr']} feito{extra}"}
             it = next((i for i in self.itens if i["chave"] == chave), None)
             if not it:
                 return {"ok": False, "erro": "este item não está mais na fila (já foi decidido ou mudou de status)"}
+            if acao == "d" and it["status"] != "escalar-arquiteto":
+                return {"ok": False, "erro": "só um plano que voltou e parou pode ser devolvido ao Dev"}
             self.itens.remove(it)
-        nome = {"a": "aprovado", "r": "recusado", "b": "backlog"}[acao]
+            self.decididos[(it["tipo"], it["id"])] = (acao, it["status"])
+        nome = {"a": "aprovado", "r": "recusado", "b": "backlog", "d": "devolvido ao Dev"}[acao]
         return {"ok": True, "acao": acao, "chave": chave, "feito": f"(demo) {nome}: {it['id']}"}
 
 
@@ -433,8 +482,19 @@ class DemoReader:
                   "arquivo": ("PLANO-" + ident + ".md") if tipo == "plano" else ident + ".md", "origem": "",
                   "aprovado": False, "conferencia": "", "prioridade": "media", "refs": [], "criado": ""}
             it.update(extra)
+            feito = self.aprovacao.decididos.get((tipo, ident))
+            if feito:
+                acao, antes = feito
+                if acao in ("r", "b"):
+                    it["status"] = "descartado" if acao == "r" else "backlog"
+                elif acao == "d" or (acao == "a" and antes == "aguardando-alex"):
+                    it["status"] = "pronto"
+                elif acao == "a" and antes == "escalar-arquiteto":
+                    it["status"] = "rascunho"   # the Arquiteto rewrites it
+                elif acao == "a":
+                    it["aprovado"] = True
             brutos.append(it)
-        return CadeiaReader.itens_do_quadro(brutos, True, t)
+        return CadeiaReader.itens_do_quadro(brutos, True, t, self.aprovacao.para_quadro())
 
     def _cadeia(self, when: datetime) -> dict:
         quadro = []

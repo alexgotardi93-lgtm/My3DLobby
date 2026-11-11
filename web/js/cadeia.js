@@ -2,7 +2,10 @@
 // One column per owner (Você, Arquiteto, Dev, Revisão, Concluído, Backlog), each in the agent's own colour; a plan
 // that cannot start says which plan it waits for and who has that one. The data comes with /api/state (cadeia.itens,
 // built by the same rules as the queue scripts) and the history with cadeia.eventos.
+// "Você" is exactly the "Esperando você" list (decisions + PRs to merge), and its cards carry the same buttons:
+// they act through aprovacao.js, so a click here and a click in the queue window are the same thing.
 import { t } from './i18n.js';
+import { acaoFila, itemFila, mergeFila, estadoAcao, botoesDecisao, botoesMerge, depTexto, aoMudar, pedirMerge, cancelarMerge } from './aprovacao.js';
 
 const $ = (id) => document.getElementById(id);
 const fmt = (s, o = {}) => String(s ?? '').replace(/\{(\w+)\}/g, (_, k) => (o[k] ?? ''));
@@ -15,6 +18,7 @@ let S = null;
 let busca = '';
 let comHistorico = ler('my3dlobby.cadeia.hist', '1') !== '0';
 const abertos = new Set();
+let confirmaRecusa = null;   // chave whose "refuse?" confirmation is open
 let aoAbrirFila = null;
 let aoVerAgente = null;
 
@@ -35,7 +39,7 @@ const PESO = {
   revisando: 0, 'fila-reviewer': 1, conferindo: 2, 'pr-aberto': 3, triagem: 4,
 };
 const AO_VIVO = new Set(['executando', 'revisando', 'conferindo', 'avaliando', 'escrevendo', 'corrigindo', 'triagem']);
-const PEDE_ALEX = new Set(['aprovar', 'aprovar-volta', 'decidir', 'segurado', 'voltou-parado']);
+const PEDE_ALEX = new Set(['aprovar', 'aprovar-volta', 'decidir', 'segurado', 'voltou-parado', 'merge']);
 
 function agente(id) { return ((S && S.agents) || []).find((a) => a.id === id); }
 export function corDono(dono) { return COR_FIXA[dono] || (agente(dono) || {}).color || COR_PADRAO[dono] || '#7c8cff'; }
@@ -130,7 +134,8 @@ function cartao(it) {
   const aberto = abertos.has(k);
   const vivo = AO_VIVO.has(it.etapa);
   const cls = ['cd-card', aberto ? 'open' : '', it.etapa === 'bloqueado' ? 'blocked' : '', vivo ? 'live' : '', PEDE_ALEX.has(it.etapa) ? 'ask' : ''].filter(Boolean).join(' ');
-  let h = `<article class="${cls}" data-k="${esc(k)}" style="--c:${corDono(it.dono)}" tabindex="0">`;
+  const alvo = it.chave ? ` data-chave="${esc(it.chave)}"` : it.merge ? ` data-merge="${esc(it.merge)}"` : '';
+  let h = `<article class="${cls}" data-k="${esc(k)}"${alvo} style="--c:${corDono(it.dono)}" tabindex="0">`;
   h += `<div class="cd-etapa">${vivo ? '<span class="cd-live"></span>' : ''}<span>${esc(etapaTexto(it))}</span>`;
   if (it.posicao) h += `<span class="cd-pos">${esc(fmt(t('cd_pos'), { n: it.posicao }))}</span>`;
   h += '</div>';
@@ -145,8 +150,38 @@ function cartao(it) {
   if (it.pr) meta.push(prLink(it.pr));
   if (+it.ciclos > 0) meta.push(esc(fmt(t('cd_ciclo'), { c: it.ciclos })));
   h += `<div class="cd-meta">${meta.join('<i>·</i>')}</div>`;
+  h += acoes(it);
   if (aberto) h += detalhe(it);
   return h + '</article>';
+}
+
+/** Buttons right on the card for what waits for Alex (decide, back to the Dev, merge). */
+function acoes(it) {
+  const chave = it.chave || it.merge;
+  if (!chave) return '';
+  const st = estadoAcao(chave);
+  if (st.feito) {
+    return `<div class="cd-feito"><b>${esc((t('ap_feito') || {})[st.feito.acao] || '')}</b> <span>${esc(st.feito.texto)}</span></div>`;
+  }
+  let h = '';
+  if (it.merge) {
+    const m = mergeFila(it.merge);
+    if (!m) return '';
+    const aviso = (t('ap_merge_estado') || {})[m.estado];
+    if (aviso) h += `<div class="cd-aviso">${esc(aviso)}</div>`;
+    if (m.libera && m.libera.length) h += `<div class="cd-dep"><b>${esc(t('ap_libera'))}</b> ${esc(m.libera.join(' · '))}</div>`;
+    h += `<div class="cd-acts">${botoesMerge(m, 'cd-b')}</div>`;
+  } else {
+    const f = itemFila(it.chave);
+    if (!f) return '';
+    if (f.depende) h += `<div class="cd-dep">${depTexto(f)}</div>`;
+    h += confirmaRecusa === it.chave
+      ? `<div class="cd-acts"><span class="cd-conf-t">${esc(t('ap_recusar'))}?</span><button class="cd-b" data-x="recusa-nao">${esc(t('ap_cancelar'))}</button>`
+        + `<button class="cd-b danger" data-x="recusa-sim">${esc(t('cd_confirmar'))}</button></div>`
+      : `<div class="cd-acts">${botoesDecisao(f, 'cd-b')}</div>`;
+  }
+  if (st.erro) h += `<div class="cd-erro">${esc(st.erro)}</div>`;
+  return h;
 }
 
 function detalhe(it) {
@@ -172,6 +207,10 @@ function cabecaColuna(col, lista) {
   const pontos = col.donos.map((d) => `<i style="background:${corDono(d)}"></i>`).join('');
   const nomes = col.id === 'revisao' ? col.donos.map(nomeDono).join(' + ') : col.id === 'fim' ? (t('cd_col_fim2') || titulo) : titulo;
   let extra = '';
+  if (col.id === 'alex') {
+    const m = lista.filter((i) => i.merge || i.etapa === 'merge').length;
+    if (lista.length) extra = fmt(t('ap_n_det'), { a: lista.length - m, m });
+  }
   if (col.id === 'dev') {
     const ex = lista.filter((i) => i.etapa === 'executando' || i.etapa === 'devolvido').length;
     const fi = lista.filter((i) => i.etapa === 'fila-dev').length;
@@ -255,12 +294,23 @@ export function setupCadeia({ onAbrirFila, onVerAgente } = {}) {
   $('cadeia').addEventListener('mousedown', (e) => { if (e.target.id === 'cadeia') closeCadeia(); });
   $('cd-q').addEventListener('input', () => { busca = $('cd-q').value.trim(); render(); });
   $('cd-hist-btn').onclick = () => { comHistorico = !comHistorico; gravar('my3dlobby.cadeia.hist', comHistorico ? '1' : '0'); render(); };
+  aoMudar(() => refreshCadeia());
   $('cd-cols').addEventListener('click', (e) => {
     if (e.target.closest('a')) return;
-    const b = e.target.closest('button[data-x]');
+    const b = e.target.closest('button');
     if (b) {
+      const card = b.closest('article[data-k]');
+      const chave = card && (card.dataset.chave || card.dataset.merge);
+      if (b.disabled) return;
       if (b.dataset.x === 'fila' && aoAbrirFila) { closeCadeia(); aoAbrirFila(); }
-      if (b.dataset.x === 'agente' && aoVerAgente) { closeCadeia(); aoVerAgente(b.dataset.a); }
+      else if (b.dataset.x === 'agente' && aoVerAgente) { closeCadeia(); aoVerAgente(b.dataset.a); }
+      else if (b.dataset.x === 'recusa-nao') { confirmaRecusa = null; refreshCadeia(); }
+      else if (b.dataset.x === 'recusa-sim' && chave) { confirmaRecusa = null; acaoFila(chave, 'r'); }
+      else if (b.dataset.x === 'merge-nao') { cancelarMerge(); }
+      else if (b.dataset.x === 'merge-sim' && chave) { acaoFila(chave, 'm'); }
+      else if (b.dataset.a === 'm' && chave) { pedirMerge(chave); }
+      else if (b.dataset.a === 'r' && chave) { confirmaRecusa = chave; refreshCadeia(); }
+      else if (b.dataset.a && chave) { acaoFila(chave, b.dataset.a); }
       return;
     }
     if (String(window.getSelection ? window.getSelection() : '').trim()) return;
