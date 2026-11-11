@@ -3,6 +3,7 @@
 ## 0.4.4 — 2026-11-11
 
 - Cadeia: a plan whose dependency was approved but not merged yet shows as **stuck, waiting for your merge** (with the PR), not "in the Dev's queue": the Dev's branch starts from `origin/main`, so an approved PR is not enough (the chain's Dev queue now waits for the merge too).
+- Cadeia: plans with no steps for the Dev (`tipo: infra`, `falso-positivo`, `backlog`) no longer show in the Dev's queue: a ready one sits with **Você** (the chain's Dev queue skips them now), and an approved Sentinela false positive counts as finished (the Sentinela only watches the signal).
 
 ## 0.4.3 — 2026-11-10
 

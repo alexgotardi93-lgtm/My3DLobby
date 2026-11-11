@@ -497,6 +497,11 @@ def classificar(it: dict, trava: bool, com_retorno: set) -> tuple:
         if st == "novo":
             return ("alex", "aprovar-volta") if trava and not it.get("aprovado") else ("arquiteto", "corrigir")
         return {"em-avaliacao": ("arquiteto", "corrigindo"), "aguardando-aprovacao": ("alex", "aprovar-volta")}.get(st, (None, st))
+    classe = it.get("classe", "codigo")
+    if classe == "falso-positivo" and st == "aprovado":
+        return ("fim", "concluido")  # the Sentinela only watches it; nothing to merge
+    if classe in ("infra", "falso-positivo", "backlog") and st in ("pronto", "devolvido"):
+        return ("alex", "decidir")  # the Dev queue skips these kinds (no steps for the Dev)
     if st == "escalar-arquiteto":
         return ("arquiteto", "voltou-corrigir") if it["id"] in com_retorno else ("alex", "voltou-parado")
     if st == "em-revisao" and str(it.get("conferencia", "")).startswith("ok"):
@@ -605,6 +610,7 @@ class CadeiaReader:
                     "aprovado": bool(d.get("aprovado")), "conferencia": d.get("conferencia", "")[:40],
                     "prioridade": d.get("prioridade", "media").strip() or "media", "refs": refs,
                     "criado": d.get("criado") or d.get("quando", ""),
+                    "classe": (d.get("tipo", "").strip().lower() or "codigo") if tipo == "plano" else "",
                 }
         for k in list(self.cache):
             if k not in vistos:

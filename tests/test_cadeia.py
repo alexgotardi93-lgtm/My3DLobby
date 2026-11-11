@@ -99,6 +99,16 @@ class QuadroTest(unittest.TestCase):
         self.assertEqual(q["D-juiz2"]["etapa"], "bloqueado")
         self.assertEqual((q["D-juiz2"]["espera"]["dono"], q["D-juiz2"]["espera"]["etapa"]), ("alex", "merge"))
 
+    def test_planos_sem_passos_para_o_dev_nao_entram_na_fila_dele(self):
+        a = self.lobby / "arquiteto" / "planos"
+        escrever(a / "PLANO-D-infra.md", "status: pronto\nid: D-infra\ntipo: infra\ntitulo: Infra\n\nx\n")
+        escrever(a / "PLANO-SENT-a2.md", "status: aprovado\nid: SENT-a2\ntipo: falso-positivo\ntitulo: Limiar\n\nx\n")
+        self.r.atualizar()
+        q = self.quadro()
+        self.assertEqual((q["D-infra"]["dono"], q["D-infra"]["etapa"]), ("alex", "decidir"))
+        self.assertNotIn("posicao", q["D-infra"])
+        self.assertEqual((q["SENT-a2"]["dono"], q["SENT-a2"]["etapa"]), ("fim", "concluido"))
+
     def test_fila_do_dev_na_ordem_da_fila(self):
         q = self.quadro()
         self.assertEqual([q[i]["posicao"] for i in ("D-a", "D-c", "D-b")], [1, 2, 3])  # prioridade, depois o mais antigo
