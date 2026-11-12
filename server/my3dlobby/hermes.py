@@ -166,13 +166,21 @@ class LogTail:
         return lines
 
 
+# Profiles the chain's installers create, with a face even before ~/.my3dlobby.toml names them
+# (the [[agent]] entries there still win). "seguranca" is the security Arquiteto (Opus), since 12/11/2026.
+PERFIS_CONHECIDOS = {
+    "seguranca": {"name": "Segurança", "role": "Arquiteto de segurança", "color": "#d84a5b"},
+}
+
+
 # ----------------------------------------------------------------------------- the reader
 class AgentState:
     def __init__(self, profile: str, acfg: Optional[AgentConfig], index: int, home: Path):
         self.profile = profile
-        self.name = (acfg.name if acfg and acfg.name else profile.capitalize())
-        self.role = acfg.role if acfg else ""
-        self.color = (acfg.color if acfg and acfg.color else PALETTE[index % len(PALETTE)])
+        padrao = PERFIS_CONHECIDOS.get(profile, {})
+        self.name = (acfg.name if acfg and acfg.name else padrao.get("name") or profile.capitalize())
+        self.role = (acfg.role if acfg and acfg.role else padrao.get("role", ""))
+        self.color = (acfg.color if acfg and acfg.color else padrao.get("color") or PALETTE[index % len(PALETTE)])
         self.desk = acfg.desk if acfg else -1
         self.home = home
         self.model = ""

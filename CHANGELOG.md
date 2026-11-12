@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.8 — 2026-11-12
+
+- **Two Arquitetos.** The chain now has a security Arquiteto (Hermes profile `seguranca`, Claude Opus 5.5) beside the general one (Claude Fable 5.2). The office shows him as **Segurança** (red) even without an `[[agent]]` entry, and the Cadeia board puts both in one column, **Arquiteto + Segurança**, each card in its owner's color. Who has an item follows the chain's own rule: the `area:` in the header (the log monitor sends security alerts in their own daily item; the Conferente marks the area at triage); a return follows its plan; with no mark, security words in the title and the start of the text. Only while `arquiteto/.seguranca-ativo` exists; without it, everything stays with the Arquiteto, as before.
+
 ## 0.4.7 — 2026-11-11
 
 - **"Espera: … Você" now comes with the buttons.** When a stopped card waits for a plan that is with you (to decide, to approve its return, or to merge), the "Espera" box carries the same buttons as the **Você** column, so the "yes" is right where the card asks for it.

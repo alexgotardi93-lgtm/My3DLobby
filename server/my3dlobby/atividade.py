@@ -509,6 +509,29 @@ def classificar(it: dict, trava: bool, com_retorno: set) -> tuple:
     return PLANO_DONO.get(st, (None, st))
 
 
+# Two Arquitetos (12/11/2026): the chain's queue gives security work to the "seguranca" profile (Opus) and the rest
+# to "arquiteto" (Fable). Same rule as arquiteto-fila.py: `area:` in the header; a retorno follows its plan;
+# without a mark, security words in the title and the start of the text. Only while arquiteto/.seguranca-ativo exists.
+PALAVRAS_SEGURANCA = re.compile(
+    r"\bRLS\b|row level security|\bpolic(?:y|ies)\b|\bGRANT\b|\bREVOKE\b|security definer|service_role|"
+    r"permiss[ãa]o negada|\b42501\b|entre munic[íi]pios|de outro munic[íi]pio|vazamento|vazou|segredo|"
+    r"chave exposta|\bsenha\b|auth\.users|avisos? de seguran[çc]a|security advisor", re.I)
+
+
+def _area(valor: str) -> str:
+    v = (valor or "").strip().lower().replace("ç", "c")
+    return v if v in ("seguranca", "geral") else ""
+
+
+def area_pelo_texto(f: Path, titulo: str) -> str:
+    try:
+        texto = f.read_text(encoding="utf-8", errors="replace")[:6000]
+    except OSError:
+        texto = ""
+    corpo = texto.split("\n\n", 1)[1][:2000] if "\n\n" in texto else ""
+    return "seguranca" if PALAVRAS_SEGURANCA.search(f"{titulo}\n{corpo}") else "geral"
+
+
 def cabecalho(f: Path) -> dict:
     """`chave: valor` lines up to the first blank line (the same rule the queue scripts use)."""
     dados = {}
@@ -589,6 +612,8 @@ class CadeiaReader:
                         d = cabecalho(f)
                     except OSError:
                         continue
+                    if tipo in ("item", "demanda") and not _area(d.get("area", "")):
+                        d["_area"] = area_pelo_texto(f, d.get("titulo", ""))
                     self.cache[chave_arq] = (mt, d)
                 st = d.get("status", "").strip().lower()
                 if not st:
@@ -614,6 +639,7 @@ class CadeiaReader:
                     "prioridade": d.get("prioridade", "media").strip() or "media", "refs": refs,
                     "criado": d.get("criado") or d.get("quando", ""),
                     "classe": (d.get("tipo", "").strip().lower() or "codigo") if tipo == "plano" else "",
+                    "area": _area(d.get("area", "")) or d.get("_area", ""),
                 }
         for k in list(self.cache):
             if k not in vistos:
@@ -673,6 +699,7 @@ class CadeiaReader:
 
     def vista(self, fila: Optional[dict] = None) -> dict:
         agora = time.time()
+        seguranca = (self.lobby / "arquiteto" / ".seguranca-ativo").is_file()
         with self.lock:
             itens = list(self.itens.values())
             eventos = list(self.eventos[-80:])
@@ -697,11 +724,13 @@ class CadeiaReader:
             q.pop("refs", None)
         quadro.sort(key=lambda x: (ORDEM.get(x["status"], 15), x["desde"]))
         trava = (self.lobby / "arquiteto" / ".trava-aprovacao").exists()
-        return {"quadro": quadro, "itens": self.itens_do_quadro(itens, trava, agora, fila), "trava": trava,
+        return {"quadro": quadro, "itens": self.itens_do_quadro(itens, trava, agora, fila, seguranca), "trava": trava,
+                "seguranca": seguranca,
                 "eventos": eventos, "ok": self.planos.is_dir(), "erro": self.erro}
 
     @staticmethod
-    def itens_do_quadro(itens: list, trava: bool, agora: float, fila: Optional[dict] = None) -> list:
+    def itens_do_quadro(itens: list, trava: bool, agora: float, fila: Optional[dict] = None,
+                        seguranca: bool = False) -> list:
         """Every item that is somewhere in the chain, with who has it, what that means and what it waits for.
 
         `fila` (AprovacaoReader.para_quadro) makes "Você" exactly the Fila: what waits for a decision gets its
@@ -723,6 +752,18 @@ class CadeiaReader:
                     if suf in it["id"]:
                         com_retorno.add(it["id"][:it["id"].rindex(suf)])
         planos = {it["id"]: it for it in itens if it["tipo"] == "plano"}
+
+        def area(it: dict) -> str:  # whose Arquiteto: a retorno follows the plan it refers to
+            if it.get("area"):
+                return it["area"]
+            if it["tipo"] == "retorno":
+                for ref in it.get("refs") or []:
+                    if ref in planos:
+                        return planos[ref].get("area") or "geral"
+            return "geral"
+
+        def do_arquiteto(dono: str, it: dict) -> str:
+            return "seguranca" if seguranca and dono == "arquiteto" and area(it) == "seguranca" else dono
         # one card per job: a plan that came back is shown by its open retorno (the Arquiteto's or Alex's turn),
         # not by the plan card as well; what waits for that plan shows the retorno's state
         retorno_do_plano, plano_do_retorno = {}, {}
@@ -756,6 +797,7 @@ class CadeiaReader:
                 dono, etapa = "arquiteto", "voltou-corrigir"  # not in the Fila: it has an open retorno there
             if dono is None or (dono == "fim" and agora - it["mtime"] > FIM_NO_QUADRO):
                 continue
+            dono = do_arquiteto(dono, it)
             item = {k: v for k, v in it.items() if k not in ("refs",)}
             item["dono"], item["etapa"] = dono, etapa
             alvo = plano_do_retorno.get(it["id"]) if it["tipo"] == "retorno" and it["status"] in ABERTO else None
@@ -780,6 +822,7 @@ class CadeiaReader:
                             d_dono, d_etapa = retorno_do_plano[dep["id"]]
                         elif fila is not None and d_etapa == "voltou-parado" and not pend.get(f"plano:{dep['id']}"):
                             d_dono, d_etapa = "arquiteto", "voltou-corrigir"
+                        d_dono = do_arquiteto(d_dono, dep)
                         acao = {}
                         if d_dono == "alex":  # what it waits for is with Alex: the buttons go right here too
                             if pend.get(f"plano:{dep['id']}"):

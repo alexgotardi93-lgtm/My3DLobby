@@ -24,13 +24,13 @@ let aoVerAgente = null;
 
 const COLUNAS = [
   { id: 'alex', donos: ['alex'] },
-  { id: 'arquiteto', donos: ['arquiteto'] },
+  { id: 'arquiteto', donos: ['arquiteto', 'seguranca'] },  // the general and the security Arquiteto share it
   { id: 'dev', donos: ['dev'] },
   { id: 'revisao', donos: ['conferente', 'reviewer'] },
   { id: 'fim', donos: ['fim', 'backlog'] },  // done and backlog share the last column (both are out of the flow)
 ];
 const COR_FIXA = { alex: '#f2c14e', fim: '#35d07f', backlog: '#7b8496' };
-const COR_PADRAO = { arquiteto: '#d8663b', dev: '#c9a227', reviewer: '#8c5bd8', conferente: '#3fa7a0', zap: '#2f8f6f', financeiro: '#3b6fd8' };
+const COR_PADRAO = { arquiteto: '#d8663b', seguranca: '#d84a5b', dev: '#c9a227', reviewer: '#8c5bd8', conferente: '#3fa7a0', zap: '#2f8f6f', financeiro: '#3b6fd8' };
 // order inside a column: what is moving first, then what waits, oldest first
 const PESO = {
   merge: 0, decidir: 1, 'voltou-parado': 2, segurado: 3, aprovar: 4, 'aprovar-volta': 5,
@@ -49,7 +49,9 @@ function nomeDono(dono) {
   return a ? a.name : ((t('cd_nomes') || {})[dono] || dono || '?');
 }
 function etapaTexto(it) {
-  return fmt((t('cd_etapa') || {})[it.etapa] || it.etapa || it.status, { pr: it.pr ? '#' + it.pr : '', c: it.ciclos || '1' });
+  let txt = fmt((t('cd_etapa') || {})[it.etapa] || it.etapa || it.status, { pr: it.pr ? '#' + it.pr : '', c: it.ciclos || '1' });
+  if (it.dono === 'seguranca') txt = txt.replace(/\bArquiteto\b/, nomeDono('seguranca'));  // the security one's work
+  return txt;
 }
 function ha(iso) {
   const d = new Date(iso);
@@ -164,7 +166,8 @@ function cartao(it) {
 const QUEUE_MIN = 10;
 const NA_VEZ = new Set(['fila-arquiteto', 'corrigir']);
 const TRABALHANDO = { arquiteto: new Set(['avaliando', 'corrigindo', 'escrevendo']), dev: new Set(['executando']) };
-let ocupados = { arquiteto: false, dev: false };   // an agent already working finishes that first
+TRABALHANDO.seguranca = TRABALHANDO.arquiteto;
+let ocupados = { arquiteto: false, seguranca: false, dev: false };   // an agent already working finishes that first
 function proximaRodada(it) {
   const vez = NA_VEZ.has(it.etapa) || ((it.etapa === 'fila-dev' || it.etapa === 'devolvido') && it.posicao === 1);
   if (!vez || ocupados[it.dono]) return '';
@@ -226,8 +229,10 @@ function detalhe(it) {
 function cabecaColuna(col, lista) {
   const titulo = (t('cd_col') || {})[col.id] || col.id;
   const sub = (t('cd_col_sub') || {})[col.id] || '';
-  const pontos = col.donos.map((d) => `<i style="background:${corDono(d)}"></i>`).join('');
-  const nomes = col.id === 'revisao' ? col.donos.map(nomeDono).join(' + ') : col.id === 'fim' ? (t('cd_col_fim2') || titulo) : titulo;
+  const dois = col.id === 'arquiteto' && (((S && S.cadeia) || {}).seguranca || lista.some((i) => i.dono === 'seguranca'));
+  const donos = col.id === 'arquiteto' && !dois ? ['arquiteto'] : col.donos;
+  const pontos = donos.map((d) => `<i style="background:${corDono(d)}"></i>`).join('');
+  const nomes = col.id === 'revisao' || dois ? donos.map(nomeDono).join(' + ') : col.id === 'fim' ? (t('cd_col_fim2') || titulo) : titulo;
   let extra = '';
   if (col.id === 'alex') {
     const m = lista.filter((i) => i.merge || i.etapa === 'merge').length;

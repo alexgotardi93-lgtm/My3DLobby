@@ -103,6 +103,29 @@ class QuadroTest(unittest.TestCase):
         sonda = next(i for i in itens if i["id"] == "D-sonda")
         self.assertEqual((sonda["espera"]["dono"], sonda["espera"]["etapa"]), ("arquiteto", "corrigindo"))
 
+    def test_dois_arquitetos_por_area(self):
+        a = self.lobby / "arquiteto"
+        escrever(a / "entrada" / "SENT-20261112-1900-seguranca" / "item.md", "status: em-avaliacao\nid: SENT-seg\n"
+                 "area: seguranca\naprovado: x\ntitulo: Monitor — segurança\nem-avaliacao-desde: 12/11/2026 19:10\n\nx\n")
+        escrever(a / "entrada" / "zap-rls" / "item.md", "status: novo\nid: zap-rls\naprovado: x\ntitulo: Reclamação\n\n"
+                 "## Relato\nA prefeitura vê demandas de outro município.\n")
+        escrever(a / "planos" / "PLANO-D-pol.md", "status: escalar-arquiteto\nid: D-pol\ntipo: codigo\narea: seguranca\n"
+                 "titulo: Policy\n\nx\n")
+        escrever(a / "retornos" / "D-pol-volta-1.md", "status: novo\naprovado: x\nplano: planos/PLANO-D-pol.md\n"
+                 "titulo: Refazer: policy\n\nx\n")
+        escrever(a / "planos" / "PLANO-D-usa.md", "status: pronto\nid: D-usa\ntitulo: Usa\ndepende-de: D-pol\n\nx\n")
+        self.r.atualizar()
+        q = self.quadro()
+        self.assertEqual(q["SENT-seg"]["dono"], "arquiteto")          # split off: everything stays with the Arquiteto
+        (a / ".seguranca-ativo").write_text("12/11/2026 17:00")
+        q = self.quadro()
+        self.assertEqual((q["SENT-seg"]["dono"], q["SENT-seg"]["etapa"]), ("seguranca", "avaliando"))
+        self.assertEqual(q["zap-rls"]["dono"], "seguranca")           # words of the report, no mark
+        self.assertEqual(q["D-pol-volta-1"]["dono"], "seguranca")     # a retorno follows its plan
+        self.assertEqual(q["D-rel"]["dono"], "arquiteto")             # the rest stays with the general one
+        self.assertEqual(q["D-usa"]["espera"]["dono"], "seguranca")   # what waits for it says who has it
+        self.assertTrue(self.r.vista()["seguranca"])
+
     def test_parado_diz_o_que_espera_e_com_quem_esta(self):
         q = self.quadro()
         self.assertEqual(q["D-juiz"]["espera"]["id"], "D-runner")

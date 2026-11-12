@@ -20,6 +20,7 @@ DEMO_AGENTS = [
     {"id": "dev", "name": "Dev", "role": "Desenvolvimento", "color": "#c9a227", "model": "claude-sonnet-5-5"},
     {"id": "arquiteto", "name": "Arquiteto", "role": "Planos e melhorias", "color": "#d8663b", "model": "claude-opus-5-5"},
     {"id": "reviewer", "name": "Reviewer", "role": "Revisão de PR", "color": "#8c5bd8", "model": "claude-opus-5-5"},
+    {"id": "seguranca", "name": "Segurança", "role": "Arquiteto de segurança", "color": "#d84a5b", "model": "claude-opus-5-5"},
 ]
 
 TASKS = {
@@ -28,6 +29,7 @@ TASKS = {
     "dev": ["Dev - fila (executando)"],
     "arquiteto": ["Avaliando melhoria: gerador de proposta", "Escrevendo plano de ação", "Revisando backlog"],
     "reviewer": ["Reviewer - fila (executando)"],
+    "seguranca": ["Auditando RLS: demandas por município", "Escrevendo plano de segurança"],
 }
 
 # fake Hermes steps (what atividade.AgoraReader reads from state.db on a real office)
@@ -96,6 +98,8 @@ DEMO_QUADRO = [
     ("retorno", "D-20261110-0110-coletor-de-erros-sentry-edge", "Sentry nas funções: o Dev parou num passo impossível do plano",
      "novo", 450, {"origem": "Dev"}),
     ("plano", "D-20261110-0150-banco-de-avaliacao-da-ia-juiz", "Banco de avaliação da IA: o juiz", "aprovado", 40, {"pr": "499"}),
+    ("item", "2026-11-12-1010-rls", "Prefeitura de Capanema vê demandas de outro município", "em-avaliacao", 6,
+     {"aprovado": True, "area": "seguranca"}),
     ("plano", "D-20261110-0150-banco-de-avaliacao-da-ia-relatorio", "Banco de avaliação da IA: o relatório", "escalar-arquiteto",
      25, {"depende": "D-20261110-0150-banco-de-avaliacao-da-ia-juiz"}),
 ]
@@ -238,6 +242,7 @@ USO_DEMO = {
     "dev": ((1, 3), (50, 140), (45_000, 95_000), 1300, "claude-sonnet-5-5"),
     "arquiteto": ((2, 6), (12, 38), (35_000, 85_000), 1100, "claude-opus-5-5"),
     "reviewer": ((1, 5), (8, 26), (28_000, 70_000), 750, "claude-opus-5-5"),
+    "seguranca": ((1, 2), (10, 30), (35_000, 85_000), 1100, "claude-opus-5-5"),
 }
 
 
@@ -494,7 +499,7 @@ class DemoReader:
                 elif acao == "a":
                     it["aprovado"] = True
             brutos.append(it)
-        return CadeiaReader.itens_do_quadro(brutos, True, t, self.aprovacao.para_quadro())
+        return CadeiaReader.itens_do_quadro(brutos, True, t, self.aprovacao.para_quadro(), seguranca=True)
 
     def _cadeia(self, when: datetime) -> dict:
         quadro = []
@@ -508,4 +513,5 @@ class DemoReader:
         eventos += [{"t": (when - timedelta(minutes=m)).isoformat(timespec="seconds"), "tipo": tipo, "id": i, "titulo": tt,
                      "de": de, "para": para, "pr": pr, "ciclos": "1"} for m, tipo, i, tt, de, para, pr in DEMO_EVENTOS_2]
         eventos.sort(key=lambda e: e["t"])
-        return {"quadro": quadro, "itens": self._cadeia_itens(when), "trava": True, "eventos": eventos, "ok": True, "erro": ""}
+        return {"quadro": quadro, "itens": self._cadeia_itens(when), "trava": True, "seguranca": True, "eventos": eventos,
+                "ok": True, "erro": ""}
