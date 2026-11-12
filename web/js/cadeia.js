@@ -228,11 +228,13 @@ function detalhe(it) {
 
 function cabecaColuna(col, lista) {
   const titulo = (t('cd_col') || {})[col.id] || col.id;
-  const sub = (t('cd_col_sub') || {})[col.id] || '';
+  const sub = (col.id === 'arquiteto' && (((S && S.cadeia) || {}).seguranca || lista.some((i) => i.dono === 'seguranca'))
+    ? t('cd_col_arqs_sub') : '') || (t('cd_col_sub') || {})[col.id] || '';
   const dois = col.id === 'arquiteto' && (((S && S.cadeia) || {}).seguranca || lista.some((i) => i.dono === 'seguranca'));
   const donos = col.id === 'arquiteto' && !dois ? ['arquiteto'] : col.donos;
   const pontos = donos.map((d) => `<i style="background:${corDono(d)}"></i>`).join('');
-  const nomes = col.id === 'revisao' || dois ? donos.map(nomeDono).join(' + ') : col.id === 'fim' ? (t('cd_col_fim2') || titulo) : titulo;
+  const nomes = col.id === 'revisao' ? donos.map(nomeDono).join(' + ') : dois ? (t('cd_col_arqs') || titulo)
+    : col.id === 'fim' ? (t('cd_col_fim2') || titulo) : titulo;
   let extra = '';
   if (col.id === 'alex') {
     const m = lista.filter((i) => i.merge || i.etapa === 'merge').length;

@@ -1,5 +1,6 @@
 // The office: floor, walls, windows with a view, desks, the copa (kitchenette),
-// the lounge (two sofas, TV, lamp), whiteboard, plants — plus the "spots"
+// the lounge (two sofas, TV, lamp), a second sofa by the front-right, the dorm (a row of beds by the
+// front-left, where the agents sleep at night), whiteboard, plants — plus the "spots"
 // characters go to and the walkable graph between them.
 import * as THREE from 'three';
 
@@ -199,6 +200,21 @@ export function buildOffice(scene, agentCount) {
   };
   sofa(1.5, 7.4, 0);                 // faces -z
   sofa(-1.6, 5.6, -Math.PI / 2, 2.4); // faces +x
+  sofa(9.6, 8.6, 0);                 // second sofa, front-right, faces -z
+  cyl(0.42, 0.42, 0.05, '#f4ecdc', 9.7, 0.42, 7.2, 32); cyl(0.05, 0.05, 0.4, '#3a3f4b', 9.7, 0.2, 7.2, 10); cyl(0.22, 0.22, 0.03, '#3a3f4b', 9.7, 0.015, 7.2, 16);
+
+  // ---- DORM: a row of beds along the front-left; heads to the front (+z), feet to the aisle at z = 6.5
+  const BED_XS = [-12.0, -10.7, -9.4, -8.1, -6.8, -5.5, -4.2];
+  const BLANKETS = ['#6b7fc4', '#58b36e', '#e6a15c', '#9b6be6', '#5cb6e6', '#e65c7a', '#c9a227'];
+  const beds = [];
+  BED_XS.forEach((x, i) => {
+    box(1.15, 0.3, 2.75, '#8c6a4a', x, 0.15, 8.18);                      // frame (z 6.8 to 9.55)
+    box(1.05, 0.2, 2.6, '#f7f4ee', x, 0.4, 8.15);                        // mattress (top at 0.5)
+    box(1.08, 0.08, 1.6, BLANKETS[i % BLANKETS.length], x, 0.53, 7.6);   // blanket over the legs
+    box(0.75, 0.12, 0.42, '#ffffff', x, 0.56, 9.2);                      // pillow
+    box(1.15, 0.85, 0.12, '#8c6a4a', x, 0.43, 9.6);                      // headboard
+    beds.push({ p: new THREE.Vector3(x, 0, 8.1), approach: new THREE.Vector3(x, 0, 6.55), face: Math.PI, lie: true, seatY: 0.5 });
+  });
   cyl(0.5, 0.5, 0.05, '#f4ecdc', 2.0, 0.42, 5.4, 32); cyl(0.05, 0.05, 0.4, '#3a3f4b', 2.0, 0.2, 5.4, 10); cyl(0.25, 0.25, 0.03, '#3a3f4b', 2.0, 0.015, 5.4, 16);
   box(0.25, 0.3, 0.2, '#ffffff', 1.85, 0.6, 5.3); box(0.25, 0.02, 0.2, '#e65c5c', 1.85, 0.76, 5.3);  // magazine
   // TV on a low stand, facing the sofas
@@ -221,7 +237,7 @@ export function buildOffice(scene, agentCount) {
     const f = add(new THREE.Mesh(new THREE.IcosahedronGeometry(0.5 * s, 1), mat('#3f9e5a'))); f.position.set(x, 0.85 * s, z);
     const f2 = add(new THREE.Mesh(new THREE.IcosahedronGeometry(0.36 * s, 1), mat('#58b36e'))); f2.position.set(x + 0.25 * s, 1.15 * s, z - 0.1 * s);
   };
-  plant(-11.8, -8.8); plant(8.0, -9.0, 0.8); plant(-11.8, 8.6); plant(6.2, 8.8); plant(11.8, 7.5); plant(12.4, -3.6, 0.9);
+  plant(-11.8, -8.8); plant(8.0, -9.0, 0.8); plant(-12.2, 5.0); plant(6.2, 8.8); plant(11.8, 7.5); plant(12.4, -3.6, 0.9);
 
   // ---- spots: where characters go
   const spots = {
@@ -235,7 +251,11 @@ export function buildOffice(scene, agentCount) {
       { p: new THREE.Vector3(2.3, 0, 7.4), face: Math.PI, sit: true, seatY: 0.5 },
       { p: new THREE.Vector3(-1.6, 0, 5.0), face: Math.PI / 2, sit: true, seatY: 0.5 },
       { p: new THREE.Vector3(-1.6, 0, 6.2), face: Math.PI / 2, sit: true, seatY: 0.5 },
+      { p: new THREE.Vector3(8.7, 0, 8.6), face: Math.PI, sit: true, seatY: 0.5 },
+      { p: new THREE.Vector3(9.6, 0, 8.6), face: Math.PI, sit: true, seatY: 0.5 },
+      { p: new THREE.Vector3(10.5, 0, 8.6), face: Math.PI, sit: true, seatY: 0.5 },
     ],
+    bed: beds,
     board: [{ p: new THREE.Vector3(-11.4, 0, -3), face: -Math.PI / 2 }],
     window: [{ p: new THREE.Vector3(-8, 0, -7.6), face: Math.PI }, { p: new THREE.Vector3(2, 0, -7.6), face: Math.PI }],
     corner: [{ p: new THREE.Vector3(12.2, 0, 3.0), face: -Math.PI / 2 }],
@@ -249,7 +269,8 @@ export function buildOffice(scene, agentCount) {
     k1: [9.4, -3.6], k2: [11.5, -3.6],
     c1: [-10, 3.2], c2: [-6, 3.2], c3: [-2.5, 3.2], c4: [2, 3.2], c5: [6, 3.2], c6: [9.5, 4.5],
     r1: [12.2, -1.5], r2: [12.2, 1.5], r3: [12.2, 4.5],
-    f1: [-0.2, 4.4], f2: [3.6, 4.6], d1: [-8, 6.5], d2: [-5, 6.5], d3: [-4.5, 8.8], d4: [6, 9], d5: [8.5, 7.5],
+    f1: [-0.2, 4.4], f2: [3.6, 4.6], d1: [-8, 6.5], d2: [-5, 6.5], d4: [6, 9], d5: [8.5, 7.5],
+    y1: [-12, 6.5], y2: [-10.7, 6.5], y3: [-9.4, 6.5], y5: [-6.8, 6.5], y7: [-4.2, 6.5],  // dorm aisle
     e1: [-8, 1.9], e2: [-3, 1.9], e3: [2, 1.9], e4: [7, 1.9],
   };
   const E = [
@@ -258,7 +279,8 @@ export function buildOffice(scene, agentCount) {
     ['b1', 'b2'], ['b2', 'b3'], ['b3', 'b4'], ['r1', 'r2'], ['r2', 'r3'], ['r3', 'c6'], ['c6', 'c5'],
     ['b1', 'e1'], ['b2', 'e2'], ['b3', 'e3'], ['b4', 'e4'], ['e1', 'e2'], ['e2', 'e3'], ['e3', 'e4'], ['e4', 'r2'],
     ['e1', 'c2'], ['e2', 'c3'], ['e3', 'c4'], ['e4', 'c5'],
-    ['c1', 'c2'], ['c2', 'c3'], ['c3', 'c4'], ['c4', 'c5'], ['c3', 'f1'], ['c4', 'f1'], ['f1', 'f2'], ['c4', 'f2'], ['c5', 'f2'], ['c1', 'd1'], ['c2', 'd2'], ['d1', 'd2'], ['d2', 'd3'], ['c5', 'd4'], ['c6', 'd5'], ['d4', 'd5'],
+    ['c1', 'c2'], ['c2', 'c3'], ['c3', 'c4'], ['c4', 'c5'], ['c3', 'f1'], ['c4', 'f1'], ['f1', 'f2'], ['c4', 'f2'], ['c5', 'f2'], ['c1', 'd1'], ['c2', 'd2'], ['d1', 'd2'], ['c5', 'd4'],
+    ['y1', 'y2'], ['y2', 'y3'], ['y3', 'd1'], ['d1', 'y5'], ['y5', 'd2'], ['d2', 'y7'], ['y1', 'c1'], ['c6', 'd5'], ['d4', 'd5'],
   ];
   const nodes = {};
   for (const [k, [x, z]] of Object.entries(N)) nodes[k] = { id: k, p: new THREE.Vector3(x, 0, z), adj: [] };

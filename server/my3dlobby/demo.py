@@ -20,7 +20,7 @@ DEMO_AGENTS = [
     {"id": "dev", "name": "Dev", "role": "Desenvolvimento", "color": "#c9a227", "model": "claude-sonnet-5-5"},
     {"id": "arquiteto", "name": "Arquiteto", "role": "Planos e melhorias", "color": "#d8663b", "model": "claude-opus-5-5"},
     {"id": "reviewer", "name": "Reviewer", "role": "Revisão de PR", "color": "#8c5bd8", "model": "claude-opus-5-5"},
-    {"id": "seguranca", "name": "Segurança", "role": "Arquiteto de segurança", "color": "#d84a5b", "model": "claude-opus-5-5"},
+    {"id": "seguranca", "name": "Arquiteto Segurança", "role": "Arquiteto de segurança", "color": "#d84a5b", "model": "claude-opus-5-5"},
 ]
 
 TASKS = {

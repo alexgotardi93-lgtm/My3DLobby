@@ -169,7 +169,7 @@ class LogTail:
 # Profiles the chain's installers create, with a face even before ~/.my3dlobby.toml names them
 # (the [[agent]] entries there still win). "seguranca" is the security Arquiteto (Opus), since 12/11/2026.
 PERFIS_CONHECIDOS = {
-    "seguranca": {"name": "Segurança", "role": "Arquiteto de segurança", "color": "#d84a5b"},
+    "seguranca": {"name": "Arquiteto Segurança", "role": "Arquiteto de segurança (Opus)", "color": "#d84a5b"},
 }
 
 

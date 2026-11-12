@@ -53,15 +53,29 @@ export class Character {
   }
 
   // ------------------------------------------------------------ visuals
-  setBubble(text) {
-    if (text === this.bubbleText) return;
-    this.bubbleText = text;
+  setBubble(text, small = false) {
+    const key = text ? (small ? 's:' : 'b:') + text : null;
+    if (key === this.bubbleText) return;
+    this.bubbleText = key;
     if (this.bubble) { this.root.remove(this.bubble); this.bubble.material.map.dispose(); this.bubble.material.dispose(); this.bubble = null; }
     if (!text) return;
-    this.bubble = makeTextSprite(text, { w: 900, h: 220, font: '600 58px Inter, Arial', tail: true });
-    this.bubble.scale.set(3.0, 0.73, 1);
+    if (small) {  // a short "Zzz..." over a bed: seven big bubbles side by side would cover the room
+      this.bubble = makeTextSprite(text, { w: 340, h: 170, font: '600 64px Inter, Arial', tail: true });
+      this.bubble.scale.set(1.0, 0.5, 1);
+    } else {
+      this.bubble = makeTextSprite(text, { w: 900, h: 220, font: '600 58px Inter, Arial', tail: true });
+      this.bubble.scale.set(3.0, 0.73, 1);
+    }
     this.bubble.position.y = this.tagBase + (this.badge ? 0.98 : 0.62);
     this.root.add(this.bubble);
+  }
+
+  // lying in bed the body is only ~0.7 high: bring the name, the sign and the bubble down with it
+  setLying(lying) {
+    this.tagBase = lying ? 1.15 : this.human.height + 0.3;
+    this.tag.position.y = this.tagBase;
+    if (this.badge) this.badge.position.y = this.tagBase + 0.36;
+    if (this.bubble) this.bubble.position.y = this.tagBase + (this.badge ? 0.98 : 0.62);
   }
 
   // a small amber sign above the name ("3 p/ aprovar"): what waits for Alex in the Arquiteto's queue
@@ -117,9 +131,10 @@ export class Character {
     const deskGoal = () => { const d = this.myDesk(); return { kind: 'desk', target: d.sit, spot: { p: d.sit, face: d.face, sit: true, seatY: d.seatY, desk: d }, until: Infinity }; };
     if (st === 'working' || st === 'error') {
       this.goal = deskGoal();
-    } else if (st === 'sleeping') {
-      const s = this.claim('sofa');
-      if (s) { this.spot = s; this.goal = { kind: 'sofa', target: s.p, spot: s, until: Infinity }; }
+    } else if (st === 'sleeping') {  // a bed in the dorm; with every bed taken, the sofa; then the desk
+      const b = this.claim('bed');
+      const s = b || this.claim('sofa');
+      if (s) { this.spot = s; this.goal = { kind: b ? 'bed' : 'sofa', target: (s.approach || s.p).clone(), spot: s, until: Infinity }; }
       else this.goal = deskGoal();
     } else if (st === 'offline') {
       const s = this.office.spots.corner[0];
@@ -160,6 +175,7 @@ export class Character {
     if (!g) return;
     if (this.sitting) { this.sitting = false; }
     this.setBubble(null);
+    this.setLying(false);
     this.human.setPose('stand');
     this.path = findPath(this.office.nodes, this.root.position, g.target);
     this.mode = 'walk';
@@ -170,7 +186,13 @@ export class Character {
     this.mode = 'act';
     this.path = null;
     const spot = g.spot;
-    if (spot && spot.sit) {
+    if (spot && spot.lie) {  // walked to the foot of the bed, now lies down on it
+      this.root.position.copy(spot.p);
+      this.root.rotation.y = spot.face;
+      this.sitting = true;
+      this.setLying(true);
+      this.human.setPose('lie', spot.seatY ?? 0.5);
+    } else if (spot && spot.sit) {
       this.root.position.copy(spot.p);
       this.root.rotation.y = spot.face;
       this.sitting = true;
@@ -184,6 +206,9 @@ export class Character {
       if (this.status === 'error') { this.human.setPose('shake'); this.setBubble(t('error') + ' ' + this.activityText()); }
       else if (this.status === 'sleeping') { this.human.setPose('sleep'); this.setBubble(t('sleep')); }
       else { this.human.setPose('type'); this.setBubble(this.activityText()); }
+    } else if (g.kind === 'bed') {
+      this.human.setPose('lie');
+      this.setBubble(t('sleep'), true);
     } else if (g.kind === 'sofa' || g.kind === 'table') {
       if (this.status === 'sleeping') { this.human.setPose('sleep'); this.setBubble(t('sleep')); }
       else { this.human.setPose(Math.random() < 0.5 ? 'phone' : 'sit'); this.setBubble(g.label || null); }

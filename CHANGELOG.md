@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.9 — 2026-11-12
+
+- **The second Arquiteto has his name.** The security Arquiteto shows as **Arquiteto Segurança** (it was only "Segurança", easy to miss as a second Arquiteto), and the Cadeia column is **Arquitetos**, "geral (Fable) e segurança (Opus)".
+- **A dorm.** A row of seven beds at the front-left of the room. Outside office hours a sleeping agent walks to a free bed and lies down (name and a small "Zzz..." just above the bed); with no bed free he takes a sofa, and only then his desk.
+- **More sofa.** A second three-seat sofa with a small table at the front-right, so idle agents have room during the day.
+
 ## 0.4.8 — 2026-11-12
 
 - **Two Arquitetos.** The chain now has a security Arquiteto (Hermes profile `seguranca`, Claude Opus 5.5) beside the general one (Claude Fable 5.2). The office shows him as **Segurança** (red) even without an `[[agent]]` entry, and the Cadeia board puts both in one column, **Arquiteto + Segurança**, each card in its owner's color. Who has an item follows the chain's own rule: the `area:` in the header (the log monitor sends security alerts in their own daily item; the Conferente marks the area at triage); a return follows its plan; with no mark, security words in the title and the start of the text. Only while `arquiteto/.seguranca-ativo` exists; without it, everything stays with the Arquiteto, as before.

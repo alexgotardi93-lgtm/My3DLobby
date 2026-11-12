@@ -101,6 +101,8 @@ export class Humanoid {
       case 'sit': return { ...sit, sLx: -0.35, sRx: -0.35, eLx: -0.9, eRx: -0.9 };
       case 'type': return { ...sit, sLx: -0.55, sRx: -0.55, eLx: -1.05, eRx: -1.05, hx: 0.12 };
       case 'sleep': return { ...sit, sLx: -0.2, sRx: -0.2, eLx: -0.6, eRx: -0.6, hx: 0.45, hy: 0.25, torso: 0.12 };
+      // lying on the back in a bed: the whole body turns with the hips; legs straight, arms by the sides
+      case 'lie': return { ...base, sLz: 0.08, sRz: -0.08, eLx: -0.15, eRx: -0.15, hipY: this.seatY + 0.14, torso: -Math.PI / 2 };
       case 'phone': return { ...sit, sRx: -0.9, eRx: -1.9, sRz: -0.4, sLx: -0.3, eLx: -0.8, hx: 0.5 };
       case 'coffee': return { ...base, sRx: -1.3, eRx: -1.7, sRz: -0.45, sLz: 0.2, hx: -0.05 };
       case 'think': return { ...base, sLx: -1.3, eLx: -1.7, sLz: 0.45, hx: 0.15, hy: -0.2 };
@@ -155,6 +157,7 @@ export class Humanoid {
     if (activePose === 'phone') { eR += Math.sin(t * 2.5) * 0.04; }
     if (activePose === 'think') { eL += Math.sin(t * 1.3) * 0.08; hx += Math.sin(t * 0.5) * 0.08; }
     if (activePose === 'sleep') { bob += Math.sin(t * 1.1) * 0.012; hx += Math.sin(t * 1.1) * 0.04; }
+    if (activePose === 'lie') { bob = Math.sin(t * 1.1) * 0.01; hy = 0; }  // slow breathing, head still
     if (activePose === 'wave') { this.elbowR.joint.rotation.z = Math.sin(t * 9) * 0.45; } else { this.elbowR.joint.rotation.z = lerp(this.elbowR.joint.rotation.z, 0, k); }
     if (activePose === 'nod') { hx += Math.sin(t * 7) * 0.25; }
     if (activePose === 'shake') { hy += Math.sin(t * 8) * 0.45; }
