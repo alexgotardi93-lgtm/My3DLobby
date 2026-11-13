@@ -31,6 +31,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from datetime import datetime
@@ -40,9 +41,11 @@ from typing import Optional
 from .atividade import _quando, curto, redigir
 
 PROGRAMA = Path("perfis") / "cadeia" / "fila_aprovacao.py"
+CERT_ESTADO = Path("financeiro") / "certidoes" / "estado.json"        # written by the Financeiro's program
+CERT_PROGRAMA = Path("perfis") / "financeiro-scripts" / "certidoes.py"
 INTERVALO = 8.0          # seconds between scans of the lobby folder
 DETALHE_MAX = 60_000     # characters of an item shown by "Ver tudo"
-ACOES = ("a", "r", "b", "d", "m")
+ACOES = ("a", "r", "b", "d", "m", "c")   # c = certidões: look in Downloads for the ones Alex just issued
 SEM_MERGE = ("falso-positivo", "infra")   # approved plans with nothing to merge
 PR_REVISITA = 120.0      # seconds between GitHub checks of an open PR (merged/closed ones are final)
 GH_EXTRA = ("/opt/homebrew/bin", "/usr/local/bin", str(Path.home() / ".local" / "bin"))
@@ -229,6 +232,39 @@ def _cab(f: Path) -> dict:
     return dados
 
 
+def _link_seguro(u: str) -> str:
+    return u if isinstance(u, str) and u.startswith("https://") and len(u) < 300 else ""
+
+
+def ler_certidoes(lobby: Path) -> dict:
+    """The BPG certidões as the Financeiro's program left them (estado.json): the five, and what waits for Alex
+    (the ones a person must issue because the site has an anti-robot check, or an automatic one that failed)."""
+    vazio = {"disponivel": (Path(lobby) / CERT_PROGRAMA).is_file(), "pendencias": [], "lista": [], "atualizado": ""}
+    try:
+        e = json.loads((Path(lobby) / CERT_ESTADO).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return vazio
+    if not isinstance(e, dict):
+        return vazio
+    tipos = e.get("tipos") if isinstance(e.get("tipos"), dict) else {}
+    guardadas = e.get("certidoes") if isinstance(e.get("certidoes"), dict) else {}
+    lista = []
+    for tipo, cfg in sorted(tipos.items(), key=lambda kv: (kv[1] or {}).get("ordem", 9)):
+        c = guardadas.get(tipo) or {}
+        lista.append({"tipo": str(tipo), "nome": redigir(curto(str(cfg.get("nome", tipo)), 60)), "auto": bool(cfg.get("auto")),
+                      "link": _link_seguro(cfg.get("link", "")), "validade": str(c.get("validade", ""))[:10],
+                      "situacao": redigir(curto(str(c.get("situacao", "")), 60)), "presumida": bool(c.get("validade_presumida"))})
+    pend = []
+    for p in e.get("pendencias") or []:
+        if not isinstance(p, dict) or not p.get("tipo"):
+            continue
+        pend.append({"chave": "certidao:" + str(p["tipo"]), "tipo": str(p["tipo"]), "nome": redigir(curto(str(p.get("nome", "")), 60)),
+                     "motivo": redigir(curto(str(p.get("motivo", "")), 300)), "link": _link_seguro(p.get("link", "")),
+                     "vence": str(p.get("vence", ""))[:10], "urgente": bool(p.get("urgente")), "auto": bool(p.get("auto")),
+                     "verificacao": redigir(curto(str(p.get("verificacao", "")), 40))})
+    return {"disponivel": True, "pendencias": pend, "lista": lista, "atualizado": str(e.get("atualizado", ""))[:25]}
+
+
 class AprovacaoReader:
     def __init__(self, lobby: Path, agente: str = "arquiteto", github: str = "", repo_dir: Optional[Path] = None):
         self.lobby = Path(lobby)
@@ -247,6 +283,7 @@ class AprovacaoReader:
         self.erro = ""
         self.atualizado = ""
         self.ultima = 0.0
+        self.certidoes = ler_certidoes(self.lobby)
 
     # ------------------------------------------------------------------ the chain program
     def _modulo(self):
@@ -280,6 +317,9 @@ class AprovacaoReader:
         if not forcar and time.time() - self.ultima < INTERVALO:
             return
         self.ultima = time.time()
+        cert = ler_certidoes(self.lobby)
+        with self.lock:
+            self.certidoes = cert
         try:
             mod = self._modulo()
             if mod is None:
@@ -352,6 +392,7 @@ class AprovacaoReader:
         with self.lock:
             return {"disponivel": self.disponivel, "trava": self.trava, "n": len(self.itens) + len(self.merges),
                     "n_aprovar": len(self.itens), "n_merge": len(self.merges), "itens": list(self.itens),
+                    "certidoes": self.certidoes, "n_cert": len(self.certidoes.get("pendencias") or []),
                     "merges": list(self.merges), "pode_merge": self.prs.pode(), "agente": self.agente,
                     "erro": self.erro, "atualizado": self.atualizado, "programa": PROGRAMA.as_posix()}
 
@@ -376,6 +417,8 @@ class AprovacaoReader:
         motivo = re.sub(r"\s+", " ", str(motivo or "")).strip()[:300]
         if acao == "m":
             return self._merge(chave)
+        if acao == "c":
+            return self._certidoes_buscar(chave)
         with self.decisao:
             mod = self._modulo()
             if mod is None:
@@ -392,6 +435,31 @@ class AprovacaoReader:
                 return {"ok": False, "erro": f"não consegui gravar: {e}"}
             self.atualizar(forcar=True)
         return {"ok": True, "acao": acao, "chave": chave, "feito": feito}
+
+    def _certidoes_buscar(self, chave: str) -> dict:
+        """'Já baixei': the Financeiro's program looks in ~/Downloads for certidões of the BPG issued in the last two
+        days, copies the ones it recognizes to financeiro/certidoes/entrada and files them. It runs from the office app
+        (macOS asks once to let it read Downloads; the background agents are not allowed to)."""
+        prog = self.lobby / CERT_PROGRAMA
+        if not prog.is_file():
+            return {"ok": False, "erro": f"programa de certidões não encontrado ({CERT_PROGRAMA.as_posix()})"}
+        env = dict(os.environ, BPG_LOBBY_PROJETO=str(self.lobby), PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
+        with self.decisao:
+            try:
+                r = subprocess.run([sys.executable, str(prog), "--downloads"], capture_output=True, text=True,
+                                   encoding="utf-8", errors="replace", timeout=180, env=env, stdin=subprocess.DEVNULL)
+            except (OSError, subprocess.TimeoutExpired) as e:
+                return {"ok": False, "erro": f"não consegui rodar o programa de certidões: {e}"}
+        m = re.search(r"^RESULTADO: (.*)$", r.stdout or "", re.M)
+        try:
+            res = json.loads(m.group(1)) if m else {}
+        except ValueError:
+            res = {}
+        self.atualizar(forcar=True)
+        if not m:
+            return {"ok": False, "erro": redigir(curto((r.stderr or r.stdout or "sem resposta").strip()[-300:], 300))}
+        feito = [redigir(curto(str(x), 200)) for x in (res.get("feito") or [])]
+        return {"ok": True, "acao": "c", "chave": chave, "feito": " · ".join(feito) or "nenhuma certidão nova em Downloads"}
 
     def _merge(self, chave: str) -> dict:
         with self.decisao:

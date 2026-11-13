@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.10 — 2026-11-13
+
+- **Certidões da BPG in "Esperando você".** The Financeiro's certidões program (no AI, in the agent chain) keeps the five certidões negativas of BPG Sistemas: it issues the Municipal (Pérola d'Oeste) and the FGTS (CRF) by itself and renews them 7 days before they expire. Federal, Estadual and Trabalhista have an anti-robot check on the site, so Alex issues them: 7 days before they expire (or when one is missing) a card shows up here with **Abrir o site**, **Copiar CNPJ** and **Já baixei**. "Já baixei" brings the certidões of the BPG downloaded in the last two days from Downloads (macOS asks once), checks them and files them. Under the cards, the five with their validity. The count shows on the Aprovar pill and as a sign over the Financeiro, never on the Arquiteto's.
+
 ## 0.4.9 — 2026-11-12
 
 - **The second Arquiteto has his name.** The security Arquiteto shows as **Arquiteto Segurança** (it was only "Segurança", easy to miss as a second Arquiteto), and the Cadeia column is **Arquitetos**, "geral (Fable) e segurança (Opus)".

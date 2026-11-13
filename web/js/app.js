@@ -6,7 +6,7 @@ import { Character } from './characters.js';
 import { initialLang, setLang, lang, t } from './i18n.js';
 import { setupConversas, updateConversas, openConversas, conversasKey, markSeen, agoraLine, agoraBox, tickSince } from './conversas.js';
 import { setupUso, updateUsoPill, usoKey, openUso, refreshUso, fmtUsd, fmtTok } from './uso.js';
-import { setupAprovacao, updateAprovacao, openAprovacao, aprovacaoKey, filaResumo, refreshAprovacao } from './aprovacao.js';
+import { setupAprovacao, updateAprovacao, openAprovacao, aprovacaoKey, filaResumo, refreshAprovacao, certResumo } from './aprovacao.js';
 import { setupCadeia, updateCadeia, openCadeia, cadeiaKey, refreshCadeia } from './cadeia.js';
 
 const POLL_MS = 3000;
@@ -116,7 +116,11 @@ function applyState(s) {
   for (const id of Object.keys(characters)) if (!seen.has(id)) { characters[id].dispose(); delete characters[id]; }
   updateAprovacao(s);
   const fila = filaResumo();  // the Arquiteto carries a sign with what waits for Alex's approval
-  for (const [id, c] of Object.entries(characters)) c.setBadge(fila && fila.agente === id && fila.n > 0 ? fmt(t('ap_badge'), { n: fila.n }) : null);
+  const certN = certResumo();  // the Financeiro carries one with the certidões only Alex can issue
+  for (const [id, c] of Object.entries(characters)) {
+    c.setBadge(fila && fila.agente === id && fila.n > 0 ? fmt(t('ap_badge'), { n: fila.n })
+      : id === 'financeiro' && certN > 0 ? fmt(t('ap_cert_badge'), { n: certN }) : null);
+  }
   renderChips(s);
   renderFeed(s);
   if (selected) renderPanel(selected);

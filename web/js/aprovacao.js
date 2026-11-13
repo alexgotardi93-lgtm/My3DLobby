@@ -199,13 +199,78 @@ function mergesVisiveis() {
 function contagem() {
   const a = S ? (S.n_aprovar ?? (S.itens || []).length) : 0;
   const m = S ? (S.n_merge ?? (S.merges || []).length) : 0;
-  return { a, m, n: a + m };
+  const c = certPendentes().length;
+  return { a, m, c, n: a + m, total: a + m + c };  // n = the Arquiteto's queue; total = everything for Alex
 }
+
+// ---------------------------------------------------------------- certidões (the Financeiro's program)
+let certOcupado = false;
+let certMsg = '';             // what the last "Já baixei" found
+let certCopiado = '';         // chave whose CNPJ was just copied
+const CNPJ_BPG = '59.456.359/0001-10';
+function certPendentes() { return (S && S.certidoes && S.certidoes.pendencias) || []; }
+function dataBr(iso) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? `${m[3]}/${m[2]}/${m[1]}` : ''; }
+
+function htmlCert(p) {
+  const dis = certOcupado || !permitido ? ' disabled' : '';
+  let h = `<article class="ap-card cert${p.urgente ? ' urgente' : ''}${certOcupado ? ' busy' : ''}" data-chave="${esc(p.chave)}">`;
+  h += `<div class="ap-top"><span class="ap-tag o-cert">${esc(t('ap_cert_tag'))}</span>`
+    + (p.verificacao ? `<span class="ap-when">${esc(tr(t('ap_cert_verif'), { v: p.verificacao }))}</span>` : '') + '</div>';
+  h += `<h3 class="ap-title">${esc(p.nome)}</h3>`;
+  h += `<div class="ap-from">${esc(p.motivo)}</div>`;
+  h += `<div class="ap-actions"><span class="ap-cnpj">CNPJ ${esc(CNPJ_BPG)}</span>`
+    + `<button class="ap-b" data-x="cert-cnpj">${esc(certCopiado === p.chave ? t('ap_cert_copiado') : t('ap_cert_copiar'))}</button>`
+    + `<span class="ap-sp"></span>`
+    + (p.link ? `<a class="ap-b" href="${esc(p.link)}" target="_blank" rel="noopener">${esc(t('ap_cert_abrir'))}</a>` : '')
+    + `<button class="ap-b primary" data-x="cert-baixei"${dis}>${certOcupado ? '<span class="spinner small"></span>' : ''}${esc(t('ap_cert_baixei'))}</button></div>`;
+  return h + '</article>';
+}
+
+function htmlCertResumo() {
+  const c = S && S.certidoes;
+  if (!c || !c.lista || !c.lista.length) return '';
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const itens = c.lista.map((x) => {
+    let cls = 'sem', txt = t('ap_cert_sem');
+    if (x.validade) {
+      const dias = Math.round((new Date(x.validade + 'T00:00:00') - hoje) / 86400000);
+      cls = dias < 0 ? 'venc' : dias <= 7 ? 'perto' : 'ok';
+      txt = tr(t('ap_cert_ate'), { d: dataBr(x.validade) });
+    }
+    const pos = x.situacao === 'positiva' || x.situacao === 'irregular';
+    return `<li class="${pos ? 'venc' : cls}"><b>${esc(x.nome)}</b> <span>${esc(txt)}</span>`
+      + `${x.auto ? `<em>${esc(t('ap_cert_auto'))}</em>` : ''}</li>`;
+  }).join('');
+  return `<ul class="ap-cert-lista">${itens}</ul>` + (certMsg ? `<div class="ap-hint">${esc(certMsg)}</div>` : '');
+}
+
+async function buscarCertidoes(chave) {
+  if (certOcupado) return;
+  certOcupado = true; certMsg = ''; render();
+  try {
+    const r = await fetch('api/aprovacao', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chave, acao: 'c', motivo: '' }) });
+    const j = await r.json();
+    certMsg = j.ok ? (j.feito || '') : t('ap_erro') + (j.erro || r.status);
+    if (j.ok) {  // the server re-read the state: get it now instead of waiting for the next poll
+      try { const r2 = await fetch('api/aprovacao', { cache: 'no-store' }); const j2 = await r2.json(); S = { ...j2 }; } catch (_) { /* next poll */ }
+    }
+  } catch (e) {
+    certMsg = t('ap_erro') + (e.message || e);
+  }
+  certOcupado = false;
+  renderPill(); render(); avisar();
+}
+
+/** For the Financeiro's sign in the office: how many certidões wait for Alex. */
+export function certResumo() { return certPendentes().length; }
 
 function render() {
   if (!isAprovacaoOpen()) return;
   const { a, m, n } = contagem();
-  $('ap-count').textContent = S && S.disponivel ? (n ? tr(t('ap_n'), { n }) + (m ? ' · ' + tr(t('ap_n_det'), { a, m }) : '') : t('ap_n0')) : '';
+  const { c, total } = contagem();
+  const det = [m ? tr(t('ap_n_det'), { a, m }) : '', c ? tr(t('ap_n_cert'), { c }) : ''].filter(Boolean).join(' · ');
+  $('ap-count').textContent = S && S.disponivel ? (total ? tr(t('ap_n'), { n: total }) + (det ? ' · ' + det : '') : t('ap_n0')) : '';
   const trava = $('ap-trava');
   trava.className = 'ap-trava ' + (S && S.trava ? 'on' : 'off');
   trava.innerHTML = S && S.disponivel ? `<span class="pdot"></span>${esc(S.trava ? t('ap_trava_on') : t('ap_trava_off'))}` : '';
@@ -220,7 +285,14 @@ function render() {
   msg.classList.toggle('hidden', !aviso);
   const itens = S && S.disponivel ? itensVisiveis() : [];
   const merges = S && S.disponivel ? mergesVisiveis() : [];
-  $('ap-empty').classList.toggle('hidden', !(S && S.disponivel && !itens.length && !merges.length));
+  const certs = S && S.disponivel ? certPendentes() : [];
+  $('ap-empty').classList.toggle('hidden', !(S && S.disponivel && !itens.length && !merges.length && !certs.length));
+  const temCert = !!(S && S.disponivel && S.certidoes && (certs.length || (S.certidoes.lista || []).length));
+  $('ap-sec-cert').classList.toggle('hidden', !temCert);
+  $('ap-cert-sub').classList.toggle('hidden', !certs.length);
+  renderLista($('ap-list-cert'), certs, htmlCert);
+  const resumo = temCert ? htmlCertResumo() : '';
+  if ($('ap-cert-resumo').__html !== resumo) { $('ap-cert-resumo').innerHTML = resumo; $('ap-cert-resumo').__html = resumo; }
   const entradas = itens.filter((i) => !ehPlano(i));
   const planos = itens.filter(ehPlano);
   $('ap-sec-itens').classList.toggle('hidden', !entradas.length);
@@ -263,7 +335,7 @@ function renderPill() {
   const b = $('btn-aprovar');
   const ok = !!(S && S.disponivel);
   b.classList.toggle('hidden', !ok);
-  const n = ok ? contagem().n : 0;
+  const n = ok ? contagem().total : 0;
   const badge = $('ap-badge');
   badge.textContent = String(n);
   badge.classList.toggle('hidden', !n);
@@ -399,6 +471,12 @@ export function setupAprovacao({ onDecidiu, onAbrirAgente } = {}) {
     if (e.target.closest('a')) return;
     const b = e.target.closest('button');
     if (!b || b.disabled) return;
+    if (b.dataset.x === 'cert-baixei') { buscarCertidoes(chave); return; }
+    if (b.dataset.x === 'cert-cnpj') {
+      const feito = () => { certCopiado = chave; render(); setTimeout(() => { certCopiado = ''; render(); }, 1800); };
+      try { navigator.clipboard.writeText(CNPJ_BPG.replace(/\D/g, '')).then(feito, () => {}); } catch (_) { /* no clipboard */ }
+      return;
+    }
     if (b.dataset.x === 'ver') {
       if (aberto.has(chave)) aberto.delete(chave);
       else { aberto.add(chave); if (!detalhes[chave]) carregarDetalhe(chave); }

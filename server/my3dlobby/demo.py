@@ -176,6 +176,18 @@ class DemoAprovacao:
         self.mergeados: set = set()
         self.decididos: dict = {}   # (tipo, id) -> acao: the board moves the item like the real files would
         self._dependencias()
+        d = t0.date()
+        iso = lambda dias: (d + timedelta(days=dias)).isoformat()  # noqa: E731
+        self.certidoes = {"disponivel": True, "atualizado": t0.isoformat(timespec="seconds"), "lista": [
+            {"tipo": "federal", "nome": "Federal (Receita e PGFN)", "auto": False, "link": "https://servicos.receitafederal.gov.br/servico/certidoes/#/home/cnpj", "validade": iso(4), "situacao": "negativa", "presumida": False},
+            {"tipo": "estadual", "nome": "Estadual (Receita do Paraná)", "auto": False, "link": "https://cdwfazenda.paas.pr.gov.br/cdwportal/certidao/automatica", "validade": iso(52), "situacao": "negativa", "presumida": False},
+            {"tipo": "municipal", "nome": "Municipal (Pérola d'Oeste)", "auto": True, "link": "", "validade": iso(60), "situacao": "negativa", "presumida": False},
+            {"tipo": "fgts", "nome": "FGTS (CRF da Caixa)", "auto": True, "link": "", "validade": iso(25), "situacao": "regular", "presumida": False},
+            {"tipo": "trabalhista", "nome": "Trabalhista (CNDT do TST)", "auto": False, "link": "https://cndt-certidao.tst.jus.br/", "validade": iso(140), "situacao": "negativa", "presumida": False}],
+            "pendencias": [{"chave": "certidao:federal", "tipo": "federal", "nome": "Federal (Receita e PGFN)",
+                            "motivo": f"vence em 4 dia(s), em {(d + timedelta(days=4)):%d/%m/%Y}: emita a nova",
+                            "link": "https://servicos.receitafederal.gov.br/servico/certidoes/#/home/cnpj", "vence": iso(4),
+                            "urgente": False, "auto": False, "verificacao": "hCaptcha"}]}
 
     def _dependencias(self) -> None:
         for it in self.itens:
@@ -195,7 +207,8 @@ class DemoAprovacao:
             return {"disponivel": True, "trava": True, "n": len(self.itens) + len(self.merges), "n_aprovar": len(self.itens),
                     "n_merge": len(self.merges), "itens": [dict(i) for i in self.itens], "merges": [dict(m) for m in self.merges],
                     "pode_merge": True, "agente": "arquiteto", "erro": "", "atualizado": now_local().isoformat(timespec="seconds"),
-                    "programa": "perfis/cadeia/fila_aprovacao.py"}
+                    "programa": "perfis/cadeia/fila_aprovacao.py", "certidoes": self.certidoes,
+                    "n_cert": len(self.certidoes["pendencias"])}
 
     def detalhe(self, chave: str) -> dict:
         with self.lock:
@@ -211,8 +224,15 @@ class DemoAprovacao:
 
     def decidir(self, chave: str, acao: str, motivo: str = "") -> dict:
         acao = str(acao or "").strip().lower()[:1]
-        if acao not in ("a", "r", "b", "d", "m"):
+        if acao not in ("a", "r", "b", "d", "m", "c"):
             return {"ok": False, "erro": "ação inválida (a, r, b, d ou m)"}
+        if acao == "c":
+            with self.lock:
+                self.certidoes["pendencias"] = [p for p in self.certidoes["pendencias"] if p["chave"] != chave]
+                for x in self.certidoes["lista"]:
+                    if "certidao:" + x["tipo"] == chave:
+                        x["validade"] = (now_local().date() + timedelta(days=180)).isoformat()
+            return {"ok": True, "acao": "c", "chave": chave, "feito": "(demo) Federal (Receita e PGFN): negativa, válida por mais 180 dias"}
         with self.lock:
             if acao == "m":
                 m = next((x for x in self.merges if x["chave"] == chave), None)

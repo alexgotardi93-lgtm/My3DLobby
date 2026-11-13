@@ -437,6 +437,17 @@ button.primary:disabled { opacity: .5; cursor: default; }
 .ap-tag.o-retorno { background: rgba(140,91,216,0.22); color: #cdb0ff; }
 .ap-tag.o-plano { background: rgba(242,193,78,0.18); color: #f6d58a; }
 .ap-tag.o-merge { background: rgba(53,208,127,0.18); color: #8ef0bd; }
+.ap-tag.o-cert { background: rgba(91,180,216,0.2); color: #9fdcff; }
+.ap-card.cert.urgente { border-color: rgba(255,107,107,0.55); }
+.ap-cnpj { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ap-cert-lista { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; font-size: 12.5px; }
+.ap-cert-lista li { display: flex; gap: 8px; align-items: baseline; padding: 5px 9px; border-radius: 8px; background: rgba(255,255,255,0.04); }
+.ap-cert-lista li b { font-weight: 600; flex: 1; }
+.ap-cert-lista li em { font-style: normal; font-size: 11px; color: var(--muted); }
+.ap-cert-lista li.ok span { color: #8ef0bd; }
+.ap-cert-lista li.perto span { color: #f6d58a; }
+.ap-cert-lista li.venc span { color: #ff8a8a; }
+.ap-cert-lista li.sem span { color: var(--muted); }
 .ap-de { color: var(--muted); }
 .ap-pr { color: #9fc6ff; font-weight: 600; text-decoration: none; }
 .ap-pr:hover { text-decoration: underline; }
