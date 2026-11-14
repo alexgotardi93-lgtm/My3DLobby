@@ -18,6 +18,7 @@ import tempfile
 import threading
 import time
 import unicodedata
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 
@@ -27,6 +28,57 @@ TIMEOUT = 30 * 60
 # Agents on a small local model get only the tools of their job: every extra tool is more prompt to read on
 # each turn and one more way to pick the wrong one. The others keep Hermes's default set.
 TOOLSETS = {"alex": "browser,file,skills"}
+# An agent that works in a Chrome of its own (Hermes reaches it through `browser.cdp_url`): the lobby opens that
+# browser before the message and closes it when the answer is back, so no window stays open between uses. What the
+# user did in it (a login) stays saved in the profile folder.
+BROWSERS = {"alex": {"port": 9224, "profile": "~/.local/share/bpg-alex/navegador-instagram"}}
+CHROMES = ("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+           "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+           "/Applications/Chromium.app/Contents/MacOS/Chromium",
+           "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser")
+
+
+def _browser_up(port: int) -> bool:
+    try:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(f"http://127.0.0.1:{port}/json/version", timeout=2) as r:
+            return r.status == 200
+    except (OSError, ValueError):
+        return False
+
+
+def browser_open(spec: dict) -> bool:
+    """Make sure the agent's Chrome answers on its port; True when it does."""
+    if _browser_up(spec["port"]):
+        return True
+    app = next((c for c in CHROMES if os.access(c, os.X_OK)), None)
+    if not app:
+        return False
+    profile = os.path.expanduser(spec["profile"])
+    try:
+        os.makedirs(profile, exist_ok=True)
+        subprocess.Popen([app, f"--remote-debugging-port={spec['port']}", f"--user-data-dir={profile}",
+                          "--no-first-run", "--no-default-browser-check", "--disable-backgrounding-occluded-windows",
+                          "--disable-renderer-backgrounding", "--disable-background-timer-throttling", "about:blank"],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
+                         start_new_session=True)
+    except OSError:
+        return False
+    for _ in range(30):
+        if _browser_up(spec["port"]):
+            return True
+        time.sleep(0.5)
+    return False
+
+
+def browser_close(spec: dict) -> None:
+    """Close the agent's Chrome (only that one: it is the only process with this profile folder)."""
+    profile = os.path.expanduser(spec["profile"])
+    try:
+        subprocess.run(["pkill", "-f", f"user-data-dir={profile}"], stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
 
 
 def _slug(text: str) -> str:
@@ -204,6 +256,9 @@ class ChatHub:
         # stdout goes to a file, not a pipe: a child the agent leaves behind (gateway, browser)
         # could keep a pipe open forever; with a file we only wait for hermes itself to exit.
         log = qfile + ".out"
+        navegador = BROWSERS.get(agent)
+        if navegador:
+            browser_open(navegador)
         try:
             with open(log, "w", encoding="utf-8") as fh:
                 so = ["--toolsets", TOOLSETS[agent]] if agent in TOOLSETS else []
@@ -218,6 +273,8 @@ class ChatHub:
         except OSError as e:
             return f"não consegui chamar o hermes: {e}", False
         finally:
+            if navegador:
+                browser_close(navegador)
             try:
                 os.unlink(qfile)
             except OSError:
