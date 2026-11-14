@@ -1,6 +1,6 @@
 """Talk to an agent from the lobby.
 
-A message is answered by `hermes -p <profile> chat --query-file <tmp> -Q --oneshot` in a
+A message is answered by `hermes -p <profile> chat [--toolsets ...] --query-file <tmp> -Q --oneshot` in a
 background thread (one conversation per agent at a time). While it runs, the agent shows as
 "working" in the office. History is kept per agent in ~/.my3dlobby/chats/<agent>.jsonl.
 
@@ -24,6 +24,9 @@ from pathlib import Path
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07")
 MAX_HISTORY = 200
 TIMEOUT = 30 * 60
+# Agents on a small local model get only the tools of their job: every extra tool is more prompt to read on
+# each turn and one more way to pick the wrong one. The others keep Hermes's default set.
+TOOLSETS = {"alex": "browser,file"}
 
 
 def _slug(text: str) -> str:
@@ -203,7 +206,8 @@ class ChatHub:
         log = qfile + ".out"
         try:
             with open(log, "w", encoding="utf-8") as fh:
-                proc = subprocess.Popen([self.hermes_bin, "-p", agent, "chat", "--query-file", qfile, "-Q", "--oneshot"],
+                so = ["--toolsets", TOOLSETS[agent]] if agent in TOOLSETS else []
+                proc = subprocess.Popen([self.hermes_bin, "-p", agent, "chat"] + so + ["--query-file", qfile, "-Q", "--oneshot"],
                                         stdout=fh, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, env=env,
                                         start_new_session=True)
                 try:

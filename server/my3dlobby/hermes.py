@@ -170,7 +170,7 @@ class LogTail:
 # (the [[agent]] entries there still win). "seguranca" is the security Arquiteto (Opus), since 12/11/2026.
 PERFIS_CONHECIDOS = {
     "seguranca": {"name": "Arquiteto Segurança", "role": "Arquiteto de segurança (Opus)", "color": "#d84a5b"},
-    "alex": {"name": "Alex", "role": "Agente local (enxerga a tela)", "color": "#2fa39a"},   # since 13/11/2026
+    "alex": {"name": "Alex", "role": "Agente local (Instagram pelo navegador)", "color": "#2fa39a"},   # since 13/11/2026
 }
 
 
