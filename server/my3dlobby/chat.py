@@ -31,7 +31,10 @@ TOOLSETS = {"alex": "browser,file,skills"}
 # An agent that works in a Chrome of its own (Hermes reaches it through `browser.cdp_url`): the lobby opens that
 # browser before the message and closes it when the answer is back, so no window stays open between uses. What the
 # user did in it (a login) stays saved in the profile folder.
-BROWSERS = {"alex": {"port": 9224, "profile": "~/.local/share/bpg-alex/navegador-instagram"}}
+# The lock file is shared with the office's `alex/chamar-alex.py` (another agent calling this one): one request
+# at a time uses the browser, and nobody closes it under somebody else.
+BROWSERS = {"alex": {"port": 9224, "profile": "~/.local/share/bpg-alex/navegador-instagram",
+                     "lock": "~/.local/share/bpg-alex/navegador.lock"}}
 CHROMES = ("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
            "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
            "/Applications/Chromium.app/Contents/MacOS/Chromium",
@@ -69,6 +72,32 @@ def browser_open(spec: dict) -> bool:
             return True
         time.sleep(0.5)
     return False
+
+
+def _lock(path):
+    """Wait for the turn on a lock file (flock); None where there is no lock or no fcntl (Windows)."""
+    if not path:
+        return None
+    try:
+        import fcntl
+        path = os.path.expanduser(path)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        fh = open(path, "w")
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        return fh
+    except (ImportError, OSError):
+        return None
+
+
+def _unlock(fh) -> None:
+    if fh is None:
+        return
+    try:
+        import fcntl
+        fcntl.flock(fh, fcntl.LOCK_UN)
+        fh.close()
+    except (ImportError, OSError):
+        pass
 
 
 def browser_close(spec: dict) -> None:
@@ -257,7 +286,9 @@ class ChatHub:
         # could keep a pipe open forever; with a file we only wait for hermes itself to exit.
         log = qfile + ".out"
         navegador = BROWSERS.get(agent)
+        trava = None
         if navegador:
+            trava = _lock(navegador.get("lock"))
             browser_open(navegador)
         try:
             with open(log, "w", encoding="utf-8") as fh:
@@ -275,6 +306,7 @@ class ChatHub:
         finally:
             if navegador:
                 browser_close(navegador)
+            _unlock(trava)
             try:
                 os.unlink(qfile)
             except OSError:
