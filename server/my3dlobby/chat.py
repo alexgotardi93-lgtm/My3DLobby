@@ -27,7 +27,7 @@ MAX_HISTORY = 200
 TIMEOUT = 30 * 60
 # Agents on a small local model get only the tools of their job: every extra tool is more prompt to read on
 # each turn and one more way to pick the wrong one. The others keep Hermes's default set.
-TOOLSETS = {"alex": "browser,file,skills"}
+TOOLSETS = {"alex": "browser,terminal,file,skills"}   # Hermes drops the browser without the terminal toolset
 # An agent that works in a Chrome of its own (Hermes reaches it through `browser.cdp_url`): the lobby opens that
 # browser before the message and closes it when the answer is back, so no window stays open between uses. What the
 # user did in it (a login) stays saved in the profile folder.
