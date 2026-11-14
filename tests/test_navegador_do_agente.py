@@ -33,6 +33,17 @@ class TestNavegador(unittest.TestCase):
             hub._hermes_chat("zap", "oi")
         self.assertEqual(ordem, ["abre", "fecha"])   # only the agent with a browser of its own
 
+    def test_esperando_o_alex_o_navegador_fica_aberto_e_avisa(self):
+        hub = chat.ChatHub.__new__(chat.ChatHub)
+        ordem = []
+        resposta = "CNPJ digitado no site do TST.\n" + chat.WAITING + "\nsession_id: x"
+        with mock.patch.object(chat, "browser_open", side_effect=lambda s: ordem.append("abre") or True), \
+             mock.patch.object(chat, "browser_close", side_effect=lambda s: ordem.append("fecha")), \
+             mock.patch.object(chat, "notify", side_effect=lambda t, titulo: ordem.append("avisa: " + t)), \
+             mock.patch.object(chat.ChatHub, "_hermes_run", return_value=(resposta, True)):
+            self.assertEqual(hub._hermes_chat("alex", "emita a negativa do tst"), (resposta, True))
+        self.assertEqual(ordem, ["abre", "avisa: CNPJ digitado no site do TST."])
+
 
 if __name__ == "__main__":
     unittest.main()

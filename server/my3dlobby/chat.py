@@ -34,7 +34,10 @@ TOOLSETS = {"alex": "browser,terminal,file,skills"}   # Hermes drops the browser
 # The lock file is shared with the office's `alex/chamar-alex.py` (another agent calling this one): one request
 # at a time uses the browser, and nobody closes it under somebody else.
 BROWSERS = {"alex": {"port": 9224, "profile": "~/.local/share/bpg-alex/navegador-instagram",
-                     "lock": "~/.local/share/bpg-alex/navegador.lock"}}
+                     "lock": "~/.local/share/bpg-alex/navegador.lock", "title": "Alex (agente) precisa de você"}}
+# The agent ends its answer with this line when it needs the user at its browser window (e.g. to type the code of
+# an image the agent must not type): the browser is left open and the user is notified.
+WAITING = "AGUARDANDO O ALEX NO NAVEGADOR"
 CHROMES = ("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
            "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
            "/Applications/Chromium.app/Contents/MacOS/Chromium",
@@ -97,6 +100,16 @@ def _unlock(fh) -> None:
         fcntl.flock(fh, fcntl.LOCK_UN)
         fh.close()
     except (ImportError, OSError):
+        pass
+
+
+def notify(text: str, title: str) -> None:
+    """A macOS notification (does nothing elsewhere)."""
+    msg = " ".join((text or "").split()).replace("\\", "").replace('"', "'")[:180] or "Preciso de você no meu navegador."
+    try:
+        subprocess.run(["osascript", "-e", f'display notification "{msg}" with title "{title}" sound name "Glass"'],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
         pass
 
 
@@ -272,6 +285,26 @@ class ChatHub:
                              "time": datetime.now().astimezone().isoformat(timespec="seconds")})
 
     def _hermes_chat(self, agent: str, prompt: str) -> tuple[str, bool]:
+        """One message to the agent. An agent with a browser of its own gets it opened before and closed after —
+        unless its answer ends asking for the user at that window (WAITING): then the browser stays open and the
+        Mac shows a notification."""
+        navegador = BROWSERS.get(agent)
+        if not navegador:
+            return self._hermes_run(agent, prompt)
+        trava = _lock(navegador.get("lock"))
+        reply = ""
+        try:
+            browser_open(navegador)
+            reply, ok = self._hermes_run(agent, prompt)
+            return reply, ok
+        finally:
+            if WAITING in reply:
+                notify(reply.split("session_id:")[0].replace(WAITING, "").strip(), navegador.get("title", "O agente precisa de você"))
+            else:
+                browser_close(navegador)
+            _unlock(trava)
+
+    def _hermes_run(self, agent: str, prompt: str) -> tuple[str, bool]:
         env = dict(os.environ)
         env.setdefault("NO_COLOR", "1")
         env["TERM"] = "dumb"
@@ -285,11 +318,6 @@ class ChatHub:
         # stdout goes to a file, not a pipe: a child the agent leaves behind (gateway, browser)
         # could keep a pipe open forever; with a file we only wait for hermes itself to exit.
         log = qfile + ".out"
-        navegador = BROWSERS.get(agent)
-        trava = None
-        if navegador:
-            trava = _lock(navegador.get("lock"))
-            browser_open(navegador)
         try:
             with open(log, "w", encoding="utf-8") as fh:
                 so = ["--toolsets", TOOLSETS[agent]] if agent in TOOLSETS else []
@@ -304,9 +332,6 @@ class ChatHub:
         except OSError as e:
             return f"não consegui chamar o hermes: {e}", False
         finally:
-            if navegador:
-                browser_close(navegador)
-            _unlock(trava)
             try:
                 os.unlink(qfile)
             except OSError:
