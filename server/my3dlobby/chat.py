@@ -26,7 +26,7 @@ MAX_HISTORY = 200
 TIMEOUT = 30 * 60
 # Agents on a small local model get only the tools of their job: every extra tool is more prompt to read on
 # each turn and one more way to pick the wrong one. The others keep Hermes's default set.
-TOOLSETS = {"alex": "browser,file"}
+TOOLSETS = {"alex": "browser,file,skills"}
 
 
 def _slug(text: str) -> str:
